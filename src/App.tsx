@@ -15,16 +15,14 @@ import {
   ArrowUpRight,
   LogOut,
   Lock,
+  Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone, InventoryStats, Expense } from './types.ts';
 import AddPhoneModal from './components/AddPhoneModal.tsx';
 import PhoneDetailModal from './components/PhoneDetailModal.tsx';
 import { 
-  auth, 
   db, 
-  signIn, 
-  signOut,
   collection, 
   onSnapshot, 
   query, 
@@ -35,11 +33,12 @@ import {
   deleteDoc
 } from './services/firebase.ts';
 
-const AUTHORIZED_EMAIL = 'msherpa621@gmail.com';
+// --- YOUR PRIVATE ACCESS CODE ---
+const PRIVATE_CODE = 'Sherpa2026';
 
 export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
-  const [user, setUser] = useState<any>(null);
+  const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('APP_UNLOCKED') === 'true');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,15 +48,10 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   useEffect(() => {
-    const unsubscribeAuth = auth.onAuthStateChanged((u) => {
-      setUser(u);
+    if (!isUnlocked) {
       setLoading(false);
-    });
-    return () => unsubscribeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user || user.email !== AUTHORIZED_EMAIL) return;
+      return;
+    }
 
     const phonesQuery = query(collection(db, 'phones'), orderBy('createdAt', 'desc'));
     const unsubscribePhones = onSnapshot(phonesQuery, (snapshot) => {
@@ -66,6 +60,10 @@ export default function App() {
         ...doc.data()
       })) as Phone[];
       setPhones(data);
+      setLoading(false);
+    }, (err) => {
+      console.error('Firestore error:', err);
+      setLoading(false);
     });
 
     const expensesQuery = query(collection(db, 'expenses'), orderBy('date', 'desc'));
@@ -81,7 +79,7 @@ export default function App() {
       unsubscribePhones();
       unsubscribeExpenses();
     };
-  }, [user]);
+  }, [isUnlocked]);
 
   const handleSavePhone = async (newPhone: Omit<Phone, 'id' | 'createdAt'>) => {
     try {
@@ -129,10 +127,12 @@ export default function App() {
     }
   };
 
+  // 1. Setup API Key
   if (!apiKey) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-        <h2 className="text-2xl font-black mb-4 text-white">Secure AI Setup</h2>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white">
+        <Key className="w-12 h-12 text-emerald-500 mb-6" />
+        <h2 className="text-2xl font-black mb-2">Secure AI Setup</h2>
         <p className="text-white/40 text-sm mb-8">Paste your Gemini API Key to enable OCR scanning.</p>
         <input 
           type="password" 
@@ -151,6 +151,43 @@ export default function App() {
     );
   }
 
+  // 2. Private Password Login
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white">
+        <Lock className="w-12 h-12 text-white/20 mb-6" />
+        <h2 className="text-2xl font-black mb-2 tracking-tighter">Private Inventory</h2>
+        <p className="text-white/40 text-sm mb-12 max-w-[250px] leading-relaxed">
+          This dashboard is restricted to authorized personnel only. 
+        </p>
+        <input 
+          type="password" 
+          placeholder="Enter Access Code"
+          className="w-full max-w-[300px] bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-center text-white focus:border-emerald-500 outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if ((e.target as HTMLInputElement).value === PRIVATE_CODE) {
+                localStorage.setItem('APP_UNLOCKED', 'true');
+                setIsUnlocked(true);
+              } else {
+                alert('Invalid Code');
+              }
+            }
+          }}
+        />
+        <button 
+          onClick={() => {
+            localStorage.removeItem('GEMINI_API_KEY');
+            setApiKey('');
+          }}
+          className="mt-12 text-white/20 text-[10px] uppercase font-black tracking-widest hover:text-white/40 transition-colors"
+        >
+          Reset API Key
+        </button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -161,47 +198,6 @@ export default function App() {
         >
           Loading Sherp4...
         </motion.div>
-      </div>
-    );
-  }
-
-  if (!user || user.email !== AUTHORIZED_EMAIL) {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-24 h-24 bg-white/5 rounded-[2.5rem] flex items-center justify-center mb-8 border border-white/10">
-          <Lock className="w-10 h-10 text-white/20" />
-        </div>
-        <h1 className="text-3xl font-black mb-2 tracking-tighter text-white">Private Inventory</h1>
-        <p className="text-white/40 text-sm mb-12 max-w-[250px] leading-relaxed">
-          This dashboard is restricted to authorized personnel only. 
-        </p>
-        {!user ? (
-          <button 
-            onClick={signIn}
-            className="w-full max-w-[280px] py-5 bg-white text-black rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl shadow-white/10 active:scale-95 transition-transform"
-          >
-            Sign in with Google
-          </button>
-        ) : (
-          <div className="space-y-4 w-full max-w-[280px]">
-            <p className="text-red-400 text-[10px] font-black uppercase tracking-widest">Access Denied: {user.email}</p>
-            <button 
-              onClick={signOut}
-              className="w-full py-5 bg-white/5 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest border border-white/10"
-            >
-              Sign Out
-            </button>
-          </div>
-        )}
-        <button 
-          onClick={() => {
-            localStorage.removeItem('GEMINI_API_KEY');
-            setApiKey('');
-          }}
-          className="mt-12 text-white/20 text-[10px] uppercase font-black tracking-widest hover:text-white/40 transition-colors"
-        >
-          Reset API Key
-        </button>
       </div>
     );
   }
@@ -234,7 +230,10 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={signOut}
+              onClick={() => {
+                localStorage.removeItem('APP_UNLOCKED');
+                setIsUnlocked(false);
+              }}
               className="p-3 bg-white/5 rounded-2xl border border-white/10 text-white/40 hover:text-red-400 transition-colors"
             >
               <LogOut className="w-6 h-6" />
