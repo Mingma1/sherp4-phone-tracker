@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Trash2, 
@@ -17,7 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, Expense } from '../types';
+import type { Phone, Expense } from '../types';
 
 interface PhoneDetailModalProps {
   phone: Phone | null;
@@ -42,14 +42,28 @@ export default function PhoneDetailModal({
   const [isSelling, setIsSelling] = useState(false);
   const [showExpenses, setShowExpenses] = useState(false);
   
-  const [editData, setEditData] = useState<Partial<Phone>>({ ...phone });
+  const [editData, setEditData] = useState<Partial<Phone>>({});
   const [sellData, setSellData] = useState({
-    sellPrice: phone.sellPrice?.toString() || '',
-    sellDate: phone.sellDate || new Date().toISOString().split('T')[0],
-    sellLocation: phone.sellLocation || '',
-    buyerName: phone.buyerName || '',
-    buyerNumber: phone.buyerNumber || ''
+    sellPrice: '',
+    sellDate: new Date().toISOString().split('T')[0],
+    sellLocation: '',
+    buyerName: '',
+    buyerNumber: ''
   });
+
+  // Sync state when phone changes
+  useEffect(() => {
+    if (phone) {
+      setEditData({ ...phone });
+      setSellData({
+        sellPrice: phone.sellPrice?.toString() || '',
+        sellDate: phone.sellDate || new Date().toISOString().split('T')[0],
+        sellLocation: phone.sellLocation || '',
+        buyerName: phone.buyerName || '',
+        buyerNumber: phone.buyerNumber || ''
+      });
+    }
+  }, [phone]);
 
   if (!phone) return null;
 
