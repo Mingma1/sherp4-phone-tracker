@@ -18,9 +18,9 @@ import {
   Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, InventoryStats, Expense } from './types.ts';
-import AddPhoneModal from './components/AddPhoneModal.tsx';
-import PhoneDetailModal from './components/PhoneDetailModal.tsx';
+import type { Phone, InventoryStats, Expense } from './types';
+import AddPhoneModal from './components/AddPhoneModal';
+import PhoneDetailModal from './components/PhoneDetailModal';
 import { 
   db, 
   collection, 
@@ -31,10 +31,12 @@ import {
   updateDoc,
   doc,
   deleteDoc
-} from './services/firebase.ts';
+} from './services/firebase';
 
 // --- YOUR PRIVATE ACCESS CODE ---
 const PRIVATE_CODE = 'Sherpa2026';
+
+console.log('App initialization started...');
 
 export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
@@ -48,37 +50,45 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   useEffect(() => {
+    console.log('App useEffect running. isUnlocked:', isUnlocked);
     if (!isUnlocked) {
       setLoading(false);
       return;
     }
 
-    const phonesQuery = query(collection(db, 'phones'), orderBy('createdAt', 'desc'));
-    const unsubscribePhones = onSnapshot(phonesQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Phone[];
-      setPhones(data);
-      setLoading(false);
-    }, (err) => {
-      console.error('Firestore error:', err);
-      setLoading(false);
-    });
+    try {
+      const phonesQuery = query(collection(db, 'phones'), orderBy('createdAt', 'desc'));
+      const unsubscribePhones = onSnapshot(phonesQuery, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Phone[];
+        setPhones(data);
+        setLoading(false);
+      }, (err) => {
+        console.error('Firestore phones error:', err);
+        setLoading(false);
+      });
 
-    const expensesQuery = query(collection(db, 'expenses'), orderBy('date', 'desc'));
-    const unsubscribeExpenses = onSnapshot(expensesQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Expense[];
-      setExpenses(data);
-    });
+      const expensesQuery = query(collection(db, 'expenses'), orderBy('date', 'desc'));
+      const unsubscribeExpenses = onSnapshot(expensesQuery, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Expense[];
+        setExpenses(data);
+      }, (err) => {
+        console.error('Firestore expenses error:', err);
+      });
 
-    return () => {
-      unsubscribePhones();
-      unsubscribeExpenses();
-    };
+      return () => {
+        unsubscribePhones();
+        unsubscribeExpenses();
+      };
+    } catch (e) {
+      console.error('Error setting up listeners:', e);
+      setLoading(false);
+    }
   }, [isUnlocked]);
 
   const handleSavePhone = async (newPhone: Omit<Phone, 'id' | 'createdAt'>) => {
@@ -191,13 +201,9 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="text-emerald-500 font-black tracking-widest text-xs uppercase"
-        >
+        <div className="text-emerald-500 font-black tracking-widest text-xs uppercase animate-pulse">
           Loading Sherp4...
-        </motion.div>
+        </div>
       </div>
     );
   }
