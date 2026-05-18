@@ -1,3 +1,23 @@
+// Inside your App component
+const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
+// If no key is found, show a simple input
+if (!apiKey) {
+return (
+<div style={{ padding: '20px', textAlign: 'center' }}>
+<h2>Enter Gemini API Key</h2>
+<p>This is stored only on your browser.</p>
+<input
+type="password"
+onChange={(e) => {
+localStorage.setItem('GEMINI_API_KEY', e.target.value);
+setApiKey(e.target.value);
+}}
+placeholder="Paste key here..."
+/>
+</div>
+);
+}
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
