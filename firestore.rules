@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // -------------------------------------------------------------------------
+    // GLOBAL HELPERS
+    // -------------------------------------------------------------------------
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner() {
+      return isSignedIn() && 
+             request.auth.token.email == 'msherpa621@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    // -------------------------------------------------------------------------
+    // VALIDATION HELPERS
+    // -------------------------------------------------------------------------
+    
+    function isValidPhone(data) {
+      return data.keys().hasAll(['model', 'imei', 'buyPrice', 'status', 'createdAt']) &&
+             data.model is string && data.model.size() <= 100 &&
+             data.imei is string && data.imei.size() <= 20 &&
+             data.buyPrice is number && data.buyPrice >= 0 &&
+             data.status in ['In Stock', 'Sold', 'Personal Use', 'On Sale'] &&
+             (!('serialNumber' in data) || (data.serialNumber is string && data.serialNumber.size() <= 50)) &&
+             (!('storageCapacity' in data) || (data.storageCapacity is string && data.storageCapacity.size() <= 20)) &&
+             (!('color' in data) || (data.color is string && data.color.size() <= 30)) &&
+             (!('batteryHealth' in data) || (data.batteryHealth is int && data.batteryHealth >= 0 && data.batteryHealth <= 100)) &&
+             (!('buyDate' in data) || (data.buyDate is string)) &&
+             (!('buyLocation' in data) || (data.buyLocation is string && data.buyLocation.size() <= 100)) &&
+             (!('sellerName' in data) || (data.sellerName is string && data.sellerName.size() <= 100)) &&
+             (!('sellerNumber' in data) || (data.sellerNumber is string && data.sellerNumber.size() <= 30)) &&
+             (!('sellPrice' in data) || (data.sellPrice is number && data.sellPrice >= 0)) &&
+             (!('sellLocation' in data) || (data.sellLocation is string && data.sellLocation.size() <= 100)) &&
+             (!('buyerName' in data) || (data.buyerName is string && data.buyerName.size() <= 100)) &&
+             (!('buyerNumber' in data) || (data.buyerNumber is string && data.buyerNumber.size() <= 30)) &&
+             (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 5000)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1000)) &&
+             (!('reportUrl' in data) || (data.reportUrl is string && data.reportUrl.size() <= 1000));
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['phoneId', 'amount', 'category', 'date']) &&
+             data.phoneId is string &&
+             data.amount is number && data.amount >= 0 &&
+             data.category in ['Repair', 'Misc'] &&
+             exists(/databases/$(database)/documents/phones/$(data.phoneId));
+    }
+
+    // -------------------------------------------------------------------------
+    // DEFAULT DENY
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // COLLECTIONS
+    // -------------------------------------------------------------------------
+    
+    match /phones/{phoneId} {
+      allow get, list: if isOwner();
+      
+      allow create: if isOwner() && 
+                      isValidId(phoneId) && 
+                      isValidPhone(incoming()) &&
+                      incoming().createdAt == request.time;
+      
+      allow update: if isOwner() && 
+                      isValidPhone(incoming()) &&
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().imei == existing().imei &&
+                      (
+                        // Action: Update details/Edit
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'model', 'serialNumber', 'storageCapacity', 'color', 
+                          'batteryHealth', 'buyPrice', 'buyDate', 'buyLocation',
+                          'sellerName', 'sellerNumber', 'physicalCondition', 'remarks',
+                          'imageUrl', 'reportUrl', 'status'
+                        ]) ||
+                        // Action: Sell
+                        (incoming().status == 'Sold' && 
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'status', 'sellPrice', 'sellDate', 'sellLocation', 'buyerName', 'buyerNumber'
+                         ]))
+                      );
+                      
+      allow delete: if isOwner();
+    }
+
+    match /expenses/{expenseId} {
+      allow get, list: if isOwner();
+      allow create: if isOwner() && isValidId(expenseId) && isValidExpense(incoming());
+      allow update: if isOwner() && isValidExpense(incoming());
+      allow delete: if isOwner();
+    }
+  }
+}

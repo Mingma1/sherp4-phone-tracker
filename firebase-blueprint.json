@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "Phone": {
+      "title": "Phone",
+      "description": "Represents a phone in the inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auto-generated ID" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "model": { "type": "string" },
+        "imei": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "storageCapacity": { "type": "string" },
+        "color": { "type": "string" },
+        "batteryHealth": { "type": "integer" },
+        "buyPrice": { "type": "number" },
+        "buyDate": { "type": "string", "format": "date" },
+        "buyLocation": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerNumber": { "type": "string" },
+        "sellPrice": { "type": "number" },
+        "sellDate": { "type": "string", "format": "date" },
+        "sellLocation": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerNumber": { "type": "string" },
+        "physicalCondition": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["In Stock", "Sold", "Personal Use", "On Sale"]
+        },
+        "imageUrl": { "type": "string" },
+        "reportUrl": { "type": "string" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["model", "imei", "buyPrice", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "An expense related to a specific phone.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "phoneId": { "type": "string" },
+        "category": { "type": "string", "enum": ["Repair", "Misc"] },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" }
+      },
+      "required": ["phoneId", "amount", "category"]
+    }
+  },
+  "firestore": {
+    "phones": {
+      "schema": "Phone",
+      "description": "Main inventory collection"
+    },
+    "expenses": {
+      "schema": "Expense",
+      "description": "Collection for tracking repairs and other costs"
+    }
+  }
+}

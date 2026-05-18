@@ -1,0 +1,10 @@
+{
+  "name": "Sherp4 Phone Tracker",
+  "description": "Mobile-first phone reselling inventory tracker with OCR reporting and profit analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
