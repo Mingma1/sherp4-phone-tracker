@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -12,8 +12,9 @@ export const db = getFirestore(app, firebaseConfig.apiKey ? firebaseConfig.fires
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export const signIn = () => signInWithPopup(auth, googleProvider);
+export const signIn = () => signInWithRedirect(auth, googleProvider);
 export const signOut = () => auth.signOut();
+export const handleRedirectResult = () => getRedirectResult(auth);
 
 function handleFirestoreError(error: unknown, operationType: string, path: string | null) {
   const errInfo = {
