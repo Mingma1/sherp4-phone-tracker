@@ -210,13 +210,13 @@ export default function App() {
 
   const stats: InventoryStats = {
     totalProfit: phones.reduce((acc, p) => {
-      if (p.status !== 'Sold') return acc;
-      const phoneExpenses = expenses.filter(e => e.phoneId === p.id).reduce((sum, e) => sum + e.amount, 0);
-      return acc + ((p.sellPrice || 0) - p.buyPrice - phoneExpenses);
+      if (!p || p.status !== 'Sold') return acc;
+      const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
+      return acc + ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
     }, 0),
-    totalInStock: phones.filter(p => p.status === 'In Stock').length,
-    capitalInvested: phones.filter(p => p.status === 'In Stock').reduce((acc, p) => acc + p.buyPrice, 0),
-    soldCount: phones.filter(p => p.status === 'Sold').length
+    totalInStock: phones.filter(p => p && p.status === 'In Stock').length,
+    capitalInvested: phones.filter(p => p && p.status === 'In Stock').reduce((acc, p) => acc + (p.buyPrice || 0), 0),
+    soldCount: phones.filter(p => p && p.status === 'Sold').length
   };
 
   const filteredPhones = phones.filter(p => 
