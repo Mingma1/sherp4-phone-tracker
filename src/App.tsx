@@ -15,7 +15,8 @@ import {
   ArrowUpRight,
   LogOut,
   Lock,
-  Key
+  Key,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, InventoryStats, Expense } from './types';
@@ -42,7 +43,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
   const [isUnlocked, setIsUnlocked] = useState(localStorage.getItem('APP_UNLOCKED') === 'true');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history' | 'settings'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState<Phone | null>(null);
@@ -346,6 +347,91 @@ export default function App() {
             </div>
           </div>
         )}
+        {activeTab === 'settings' && (
+          <div className="mt-8 space-y-8 max-w-xl mx-auto">
+            <h2 className="text-lg font-bold uppercase tracking-wider text-white/60 px-2">System Configuration</h2>
+            
+            <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
+              <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+                <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+                  <Key className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Gemini OCR Key</h3>
+                  <p className="text-xs text-white/40">Used for background 3uTools report extraction</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-black tracking-widest text-white/40">Current Key</label>
+                <div className="flex items-center justify-between bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-xs text-white/60">
+                  <span>{apiKey.slice(0, 6)}••••••••••••••••••••••••••••{apiKey.slice(-4)}</span>
+                  <button 
+                    onClick={() => {
+                      if (confirm('Remove key and re-authenticate?')) {
+                        localStorage.removeItem('GEMINI_API_KEY');
+                        setApiKey('');
+                      }
+                    }}
+                    className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
+              <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Inventory Backup</h3>
+                  <p className="text-xs text-white/40">Download a complete snapshot of all stock and expenses</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  const backup = {
+                    timestamp: new Date().toISOString(),
+                    phones,
+                    expenses
+                  };
+                  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `sherp4_backup_${new Date().toISOString().split('T')[0]}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="w-full py-4 bg-white/10 hover:bg-white/15 text-white font-black uppercase text-xs tracking-wider rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-white/10"
+              >
+                Download JSON Backup
+              </button>
+            </div>
+
+            <div className="bg-red-500/5 border border-red-500/10 p-8 rounded-[2.5rem] space-y-4 text-center">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-red-400">Security & Access</h3>
+              <p className="text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
+                Locking the session will require entering your master pass code (<code className="text-white/60">Sherpa2026</code>) to regain access.
+              </p>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('APP_UNLOCKED');
+                  setIsUnlocked(false);
+                }}
+                className="px-6 py-3 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-black uppercase text-[10px] tracking-widest rounded-xl transition-all cursor-pointer border border-red-500/30 inline-flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" /> Lock Application Now
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       <AddPhoneModal 
@@ -385,8 +471,8 @@ export default function App() {
             label="History"
           />
           <NavButton 
-            active={false} 
-            onClick={() => {}}
+            active={activeTab === 'settings'} 
+            onClick={() => setActiveTab('settings')}
             icon={<Settings className="w-5 h-5" />}
             label="Set"
           />
