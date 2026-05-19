@@ -176,7 +176,10 @@ export default function PhoneDetailModal({
           <div className="absolute bottom-6 left-8 right-8">
             <div className="flex items-center gap-2 mb-2">
               <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 'bg-white/20 text-white'
+                phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 
+                phone.status === 'Personal Use' ? 'bg-purple-500 text-white' :
+                phone.status === 'On Sale' ? 'bg-amber-500 text-black' :
+                'bg-white/20 text-white'
               }`}>
                 {phone.status}
               </span>
