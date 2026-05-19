@@ -226,79 +226,54 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
-      <div className="h-12 bg-black" />
+      <div className="h-6 bg-black" />
 
-      <header className="px-6 pt-10 pb-6 sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/5">
-        <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter text-white">Inventory</h1>
-            <p className="text-xs text-white/20 uppercase tracking-[0.2em] font-black mt-1">Sherp4 Dashboard</p>
+      <header className="px-4 sm:px-6 pt-6 pb-4 sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex justify-between items-center">
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2 font-display">
+                SHERP4
+                <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md tracking-widest uppercase">
+                  Solo Level • S-Rank
+                </span>
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('APP_UNLOCKED');
+                  setIsUnlocked(false);
+                }}
+                className="p-2.5 bg-white/5 rounded-xl border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10 transition-all cursor-pointer"
+                title="Lock Session"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-4 h-10 bg-emerald-500 hover:bg-emerald-400 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer font-black text-black text-xs uppercase tracking-wider font-display"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Add Item</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={async () => {
-                const oldData = [
-                  { model: "iPhone 12 128GB", buyPrice: 16000, sellPrice: 23000, status: "Sold", imei: "OLD-01", buyDate: "2024-01-01" },
-                  { model: "iPhone 12 Pro Max", buyPrice: 32350, sellPrice: 28000, status: "Sold", imei: "OLD-02", buyDate: "2024-01-02" },
-                  { model: "iPhone 14 128GB", buyPrice: 35500, sellPrice: 45000, status: "Sold", imei: "OLD-03", buyDate: "2024-01-03" },
-                  { model: "iPhone XR", buyPrice: 12000, sellPrice: 14000, status: "Sold", imei: "OLD-04", buyDate: "2024-01-04" },
-                  { model: "iPhone 13 Pro Max 128GB", buyPrice: 42000, sellPrice: 51000, status: "Sold", imei: "OLD-05", buyDate: "2024-01-05" },
-                  { model: "iPhone 11 Pro Max", buyPrice: 11000, sellPrice: 17500, status: "Sold", imei: "OLD-06", buyDate: "2024-01-06" },
-                  { model: "iPhone 11", buyPrice: 12000, sellPrice: 17000, status: "Sold", imei: "OLD-07", buyDate: "2024-01-07" },
-                  { model: "iPhone 12", buyPrice: 13000, sellPrice: 23000, status: "Sold", imei: "OLD-08", buyDate: "2024-01-08" },
-                  { model: "iPhone 13", buyPrice: 20000, sellPrice: 10000, status: "Sold", imei: "OLD-09", buyDate: "2024-01-09" },
-                  { model: "iPhone 8 Plus", buyPrice: 6050, sellPrice: 10000, status: "Sold", imei: "OLD-10", buyDate: "2024-01-10" },
-                  { model: "iPhone 12 128GB", buyPrice: 19000, sellPrice: 24500, status: "Sold", imei: "OLD-11", buyDate: "2024-01-11" },
-                  { model: "PS4 Fat 500GB", buyPrice: 10000, sellPrice: 17000, status: "Sold", imei: "OLD-12", buyDate: "2024-01-12" },
-                  { model: "iPhone X", buyPrice: 8500, sellPrice: 12000, status: "Sold", imei: "OLD-13", buyDate: "2024-01-13" },
-                  { model: "iPhone 12", buyPrice: 19500, sellPrice: 24000, status: "Sold", imei: "OLD-14", buyDate: "2024-01-14" },
-                  { model: "iPhone 12", buyPrice: 19500, sellPrice: 23000, status: "Sold", imei: "OLD-15", buyDate: "2024-01-15" },
-                  { model: "iPhone 12", buyPrice: 20000, sellPrice: 26000, status: "Sold", imei: "OLD-16", buyDate: "2024-01-16" },
-                  { model: "iPhone 14 Pro Max", buyPrice: 60500, status: "Personal Use", imei: "OLD-17", buyDate: "2024-01-17" },
-                  { model: "iPhone 12 64GB", buyPrice: 25500, status: "On Sale", imei: "OLD-18", buyDate: "2024-01-18" }
-                ];
-                if (confirm(`Import ${oldData.length} records?`)) {
-                  for (const phone of oldData) {
-                    await addDoc(collection(db, 'phones'), { ...phone, createdAt: Date.now() });
-                  }
-                  alert('Import Complete');
-                }
-              }}
-              className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white"
-            >
-              Import
-            </button>
-            <button 
-              onClick={() => {
-                localStorage.removeItem('APP_UNLOCKED');
-                setIsUnlocked(false);
-              }}
-              className="p-3 bg-white/5 rounded-2xl border border-white/10 text-white/40 hover:text-red-400 transition-colors"
-            >
-              <LogOut className="w-6 h-6" />
-            </button>
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="w-14 h-14 bg-emerald-500 rounded-3xl shadow-2xl shadow-emerald-500/40 active:scale-90 transition-transform flex items-center justify-center cursor-pointer"
-            >
-              <Plus className="w-8 h-8 text-black" />
-            </button>
-          </div>
-        </div>
 
-        <div className="mt-8 relative group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
-          <input 
-            type="text"
-            placeholder="Search IMEI or Model..."
-            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-4 pl-14 pr-6 text-base font-medium focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.05] transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <div className="mt-4 relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
+            <input 
+              type="text"
+              placeholder="Search IMEI or Model..."
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.05] transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </header>
 
-      <main className="px-4 pb-36">
+      <main className="px-3 sm:px-4 pb-28 max-w-5xl mx-auto">
         {activeTab === 'inventory' && (
           <div className="mt-6 space-y-6">
             <div className="flex items-center justify-between px-2">
@@ -311,7 +286,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <AnimatePresence mode="popLayout">
                 {filteredPhones
                   .filter(p => p.status === 'In Stock')
@@ -335,7 +310,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <AnimatePresence mode="popLayout">
                 {filteredPhones
                   .filter(p => p.status === 'Sold')
@@ -389,30 +364,30 @@ export default function App() {
         onDeleteExpense={handleDeleteExpense}
       />
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/5 px-6 pt-4 pb-10 z-[60]">
+      <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/5 px-6 pt-3 pb-6 z-[60]">
         <div className="flex justify-between items-center max-w-md mx-auto">
           <NavButton 
             active={activeTab === 'inventory'} 
             onClick={() => setActiveTab('inventory')}
-            icon={<Package className="w-6 h-6" />}
+            icon={<Package className="w-5 h-5" />}
             label="Stock"
           />
           <NavButton 
             active={activeTab === 'stats'} 
             onClick={() => setActiveTab('stats')}
-            icon={<TrendingUp className="w-6 h-6" />}
+            icon={<TrendingUp className="w-5 h-5" />}
             label="Stats"
           />
           <NavButton 
             active={activeTab === 'history'} 
             onClick={() => setActiveTab('history')}
-            icon={<History className="w-6 h-6" />}
+            icon={<History className="w-5 h-5" />}
             label="History"
           />
           <NavButton 
             active={false} 
             onClick={() => {}}
-            icon={<Settings className="w-6 h-6" />}
+            icon={<Settings className="w-5 h-5" />}
             label="Set"
           />
         </div>
@@ -431,57 +406,58 @@ function PhoneCard({ phone, onClick }: PhoneCardProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
+      exit={{ opacity: 0, scale: 0.96 }}
       onClick={onClick}
-      className="group relative bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden active:scale-[0.96] transition-transform flex flex-col cursor-pointer"
+      className="group relative bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden active:scale-[0.97] transition-transform flex flex-row cursor-pointer hover:bg-white/[0.07] hover:border-white/15"
     >
-      <div className="relative aspect-square overflow-hidden bg-white/5">
+      {/* Compact image thumbnail */}
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 overflow-hidden bg-white/5">
         {phone.imageUrl ? (
           <img 
             src={phone.imageUrl} 
             alt={phone.model}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             referrerPolicy="no-referrer"
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <Smartphone className="w-12 h-12 text-white/5" />
+            <Smartphone className="w-7 h-7 text-white/[0.08]" />
           </div>
         )}
-        <div className="absolute top-3 left-3 flex gap-1">
-          <span className={`text-[10px] uppercase font-black px-2 py-1 rounded-lg backdrop-blur-md ${
-            phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 'bg-white/20 text-white'
+        <div className="absolute top-1.5 left-1.5">
+          <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded-md backdrop-blur-md ${
+            phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 
+            phone.status === 'Sold' ? 'bg-white/20 text-white' :
+            'bg-amber-500/80 text-black'
           }`}>
             {phone.status}
           </span>
         </div>
       </div>
 
-      <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+      {/* Info */}
+      <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
         <div>
-          <div className="flex items-start justify-between">
-            <h3 className="font-bold text-sm leading-tight line-clamp-2">{phone.model}</h3>
+          <div className="flex items-start justify-between gap-1">
+            <h3 className="font-bold text-xs sm:text-sm leading-tight truncate">{phone.model}</h3>
             {phone.storageCapacity && (
-              <span className="text-[9px] font-black bg-white/10 px-1.5 py-0.5 rounded leading-none shrink-0 ml-1">
+              <span className="text-[8px] font-black bg-white/10 px-1.5 py-0.5 rounded leading-none shrink-0">
                 {phone.storageCapacity}
               </span>
             )}
           </div>
-          <p className="text-[9px] font-mono text-white/30 mt-1 uppercase tracking-tighter">
-            {phone.imei.slice(-8)} • {phone.color || 'No Col'}
+          <p className="text-[9px] font-mono text-white/25 mt-0.5 uppercase tracking-tight truncate">
+            {phone.imei.slice(-8)} • {phone.color || '—'}
           </p>
         </div>
         
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] text-white/40 font-bold uppercase">Battery</span>
-            <span className="text-xs font-mono font-black text-white/80">{phone.batteryHealth || '??'}%</span>
-          </div>
-          <div className="pt-2 border-t border-white/5">
-            <p className="font-mono text-emerald-400 font-black text-base">रु {phone.buyPrice.toLocaleString()}</p>
-          </div>
+        <div className="flex items-center justify-between mt-1">
+          <p className="font-mono text-emerald-400 font-black text-sm">रु {phone.buyPrice.toLocaleString()}</p>
+          <span className="text-[9px] font-mono text-white/40 font-bold">
+            {phone.batteryHealth ? `${phone.batteryHealth}%` : ''}
+          </span>
         </div>
       </div>
     </motion.div>

@@ -86,11 +86,15 @@ export default function PhoneDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4">
+    <div 
+      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
       <motion.div 
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
+        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl bg-[#080808] border border-white/10 rounded-[3rem] overflow-hidden flex flex-col max-h-[95vh]"
       >
         <div className="relative h-64 overflow-hidden">

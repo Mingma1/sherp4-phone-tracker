@@ -99,11 +99,15 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div 
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
       <motion.div 
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
+        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center">
