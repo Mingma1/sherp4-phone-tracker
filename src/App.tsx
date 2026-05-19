@@ -236,6 +236,39 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <button 
+              onClick={async () => {
+                const oldData = [
+                  { model: "iPhone 12 128GB", buyPrice: 16000, sellPrice: 23000, status: "Sold", imei: "OLD-01", buyDate: "2024-01-01" },
+                  { model: "iPhone 12 Pro Max", buyPrice: 32350, sellPrice: 28000, status: "Sold", imei: "OLD-02", buyDate: "2024-01-02" },
+                  { model: "iPhone 14 128GB", buyPrice: 35500, sellPrice: 45000, status: "Sold", imei: "OLD-03", buyDate: "2024-01-03" },
+                  { model: "iPhone XR", buyPrice: 12000, sellPrice: 14000, status: "Sold", imei: "OLD-04", buyDate: "2024-01-04" },
+                  { model: "iPhone 13 Pro Max 128GB", buyPrice: 42000, sellPrice: 51000, status: "Sold", imei: "OLD-05", buyDate: "2024-01-05" },
+                  { model: "iPhone 11 Pro Max", buyPrice: 11000, sellPrice: 17500, status: "Sold", imei: "OLD-06", buyDate: "2024-01-06" },
+                  { model: "iPhone 11", buyPrice: 12000, sellPrice: 17000, status: "Sold", imei: "OLD-07", buyDate: "2024-01-07" },
+                  { model: "iPhone 12", buyPrice: 13000, sellPrice: 23000, status: "Sold", imei: "OLD-08", buyDate: "2024-01-08" },
+                  { model: "iPhone 13", buyPrice: 20000, sellPrice: 10000, status: "Sold", imei: "OLD-09", buyDate: "2024-01-09" },
+                  { model: "iPhone 8 Plus", buyPrice: 6050, sellPrice: 10000, status: "Sold", imei: "OLD-10", buyDate: "2024-01-10" },
+                  { model: "iPhone 12 128GB", buyPrice: 19000, sellPrice: 24500, status: "Sold", imei: "OLD-11", buyDate: "2024-01-11" },
+                  { model: "PS4 Fat 500GB", buyPrice: 10000, sellPrice: 17000, status: "Sold", imei: "OLD-12", buyDate: "2024-01-12" },
+                  { model: "iPhone X", buyPrice: 8500, sellPrice: 12000, status: "Sold", imei: "OLD-13", buyDate: "2024-01-13" },
+                  { model: "iPhone 12", buyPrice: 19500, sellPrice: 24000, status: "Sold", imei: "OLD-14", buyDate: "2024-01-14" },
+                  { model: "iPhone 12", buyPrice: 19500, sellPrice: 23000, status: "Sold", imei: "OLD-15", buyDate: "2024-01-15" },
+                  { model: "iPhone 12", buyPrice: 20000, sellPrice: 26000, status: "Sold", imei: "OLD-16", buyDate: "2024-01-16" },
+                  { model: "iPhone 14 Pro Max", buyPrice: 60500, status: "Personal Use", imei: "OLD-17", buyDate: "2024-01-17" },
+                  { model: "iPhone 12 64GB", buyPrice: 25500, status: "On Sale", imei: "OLD-18", buyDate: "2024-01-18" }
+                ];
+                if (confirm(`Import ${oldData.length} records?`)) {
+                  for (const phone of oldData) {
+                    await addDoc(collection(db, 'phones'), { ...phone, createdAt: Date.now() });
+                  }
+                  alert('Import Complete');
+                }
+              }}
+              className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white"
+            >
+              Import
+            </button>
+            <button 
               onClick={() => {
                 localStorage.removeItem('APP_UNLOCKED');
                 setIsUnlocked(false);
