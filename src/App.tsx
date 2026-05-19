@@ -227,7 +227,22 @@ export default function App() {
           </div>
         ) : (
           <button 
-            onClick={() => signIn()}
+            onClick={async () => {
+              try {
+                const result = await signIn();
+                if (result && result.user) {
+                  localStorage.setItem('APP_UNLOCKED', 'true');
+                  setIsUnlocked(true);
+                }
+              } catch (err: unknown) {
+                console.error('Google Sign In Error:', err);
+                if (err instanceof Error) {
+                  alert(`Authentication failed: ${err.message}. Please check your popup blocker or network.`);
+                } else {
+                  alert('Authentication failed. Please check your browser popup blocker settings.');
+                }
+              }
+            }}
             className="w-full max-w-[300px] py-4 bg-white/10 hover:bg-white/15 text-white font-black uppercase text-xs tracking-wider rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-3 border border-white/10 shadow-xl"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
