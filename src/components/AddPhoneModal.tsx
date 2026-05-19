@@ -88,11 +88,16 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
   };
 
   const handleSubmit = () => {
-    if (!formData.model || !formData.imei || !formData.buyPrice) {
-      alert('Please fill in Model, IMEI, and Buy Price');
+    if (!formData.buyPrice) {
+      alert('Please fill in the Buy Price');
       return;
     }
-    onSave(formData as Omit<Phone, 'id' | 'createdAt'>);
+    const finalData = {
+      ...formData,
+      model: formData.model || 'Unknown Device',
+      imei: formData.imei || `TEMP-${Math.floor(100000 + Math.random() * 900000)}`
+    };
+    onSave(finalData as Omit<Phone, 'id' | 'createdAt'>);
     onClose();
   };
 

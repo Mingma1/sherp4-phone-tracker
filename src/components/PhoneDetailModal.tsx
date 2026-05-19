@@ -14,10 +14,17 @@ import {
   Edit2,
   Wrench,
   PlusCircle,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  FileText,
+  UploadCloud,
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, Expense } from '../types';
+import { storage, ref, uploadBytes, getDownloadURL } from '../services/firebase';
+import { scan3uReport } from '../services/ocrService';
 
 interface PhoneDetailModalProps {
   phone: Phone | null;
@@ -41,6 +48,8 @@ export default function PhoneDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [isSelling, setIsSelling] = useState(false);
   const [showExpenses, setShowExpenses] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
   const [editData, setEditData] = useState<Partial<Phone>>({});
   const [sellData, setSellData] = useState({
@@ -66,6 +75,45 @@ export default function PhoneDetailModal({
   }, [phone]);
 
   if (!phone) return null;
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'phone' | 'report') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `inventory/${Date.now()}_${type}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const fieldKey = type === 'phone' ? 'imageUrl' : 'reportUrl';
+      setEditData(prev => ({ ...prev, [fieldKey]: downloadURL }));
+
+      if (type === 'report') {
+        setIsScanning(true);
+        try {
+          const results = await scan3uReport(file);
+          setEditData(prev => ({
+            ...prev,
+            model: results.model || prev.model,
+            imei: results.imei || prev.imei,
+            serialNumber: results.serialNumber || prev.serialNumber,
+            batteryHealth: results.batteryHealth || prev.batteryHealth,
+            storageCapacity: results.storageCapacity || prev.storageCapacity,
+          }));
+        } catch (err) {
+          console.error('OCR scan failed in edit', err);
+        } finally {
+          setIsScanning(false);
+        }
+      }
+    } catch (err) {
+      console.error('Upload failed', err);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleUpdate = () => {
     onUpdate(phone.id, editData);
@@ -168,6 +216,35 @@ export default function PhoneDetailModal({
                   <EditField label="Sold Location" value={editData.sellLocation || ''} onChange={v => setEditData(p => ({...p, sellLocation: v}))} />
                 </div>
               )}
+
+              <div className="space-y-3 pt-4 border-t border-white/10">
+                <h4 className="text-xs font-black uppercase tracking-widest text-white/40">Device Media & Verification</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/50 transition-all flex flex-col items-center text-center cursor-pointer group">
+                    <Camera className="w-6 h-6 text-white/40 group-hover:text-emerald-500 mb-2 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Upload Photo</span>
+                    <input type="file" className="hidden" onChange={e => handleImageUpload(e, 'phone')} accept="image/*" />
+                  </label>
+                  <label className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/50 transition-all flex flex-col items-center text-center cursor-pointer group">
+                    <FileText className="w-6 h-6 text-white/40 group-hover:text-emerald-500 mb-2 transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Attach 3u Report</span>
+                    <input type="file" className="hidden" onChange={e => handleImageUpload(e, 'report')} accept="image/*" />
+                  </label>
+                </div>
+                
+                {isUploading && (
+                  <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl flex items-center gap-3">
+                    <UploadCloud className="w-4 h-4 text-blue-500 animate-bounce" />
+                    <span className="text-xs font-bold text-blue-400">Uploading media to storage...</span>
+                  </div>
+                )}
+                {isScanning && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+                    <span className="text-xs font-bold text-emerald-500">Extracting specifications via OCR...</span>
+                  </div>
+                )}
+              </div>
               
               <div className="flex gap-3 pt-6">
                 <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-white/5 rounded-3xl font-black uppercase text-[10px] tracking-widest cursor-pointer hover:bg-white/10 transition-colors">Discard</button>
@@ -201,6 +278,20 @@ export default function PhoneDetailModal({
                 <DetailItem icon={<User />} label="Seller" value={phone.sellerName || 'N/A'} />
                 <DetailItem icon={<PhoneIcon />} label="Contact" value={phone.sellerNumber || 'N/A'} />
               </div>
+              {phone.reportUrl && (
+                <a 
+                  href={phone.reportUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 hover:bg-emerald-500/20 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-emerald-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider">View 3uTools Diagnostic Report</span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-emerald-500/60 group-hover:text-emerald-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </a>
+              )}
             </div>
           </Section>
 
