@@ -18,13 +18,16 @@ import {
   Camera,
   FileText,
   UploadCloud,
-  Loader2,
-  ExternalLink
+  ExternalLink,
+  Zap,
+  Cpu,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import { parse3uDump } from '../services/parse3uDump';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, Expense } from '../types';
 import { storage, ref, uploadBytes, getDownloadURL } from '../services/firebase';
-import { scan3uReport } from '../services/ocrService';
 
 interface PhoneDetailModalProps {
   phone: Phone | null;
@@ -49,7 +52,9 @@ export default function PhoneDetailModal({
   const [isSelling, setIsSelling] = useState(false);
   const [showExpenses, setShowExpenses] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [showRawDumpInput, setShowRawDumpInput] = useState(false);
+  const [rawDumpText, setRawDumpText] = useState('');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   
   const [editData, setEditData] = useState<Partial<Phone>>({});
   const [sellData, setSellData] = useState({
@@ -76,43 +81,43 @@ export default function PhoneDetailModal({
 
   if (!phone) return null;
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'phone' | 'report') => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `inventory/${Date.now()}_${type}_${file.name}`);
+      const storageRef = ref(storage, `inventory/${Date.now()}_phone_${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
-      const fieldKey = type === 'phone' ? 'imageUrl' : 'reportUrl';
-      setEditData(prev => ({ ...prev, [fieldKey]: downloadURL }));
-
-      if (type === 'report') {
-        setIsScanning(true);
-        try {
-          const results = await scan3uReport(file);
-          setEditData(prev => ({
-            ...prev,
-            model: results.model || prev.model,
-            imei: results.imei || prev.imei,
-            serialNumber: results.serialNumber || prev.serialNumber,
-            batteryHealth: results.batteryHealth || prev.batteryHealth,
-            storageCapacity: results.storageCapacity || prev.storageCapacity,
-          }));
-        } catch (err) {
-          console.error('OCR scan failed in edit', err);
-        } finally {
-          setIsScanning(false);
-        }
-      }
+      setEditData(prev => ({ ...prev, imageUrl: downloadURL }));
     } catch (err) {
       console.error('Upload failed', err);
       alert('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleParseRawDumpEdit = () => {
+    if (!rawDumpText.trim()) return;
+    const res = parse3uDump(rawDumpText);
+    setEditData(prev => ({
+      ...prev,
+      model: res.model || prev.model,
+      imei: res.imei || prev.imei,
+      serialNumber: res.serialNumber || prev.serialNumber,
+      batteryHealth: res.batteryHealth || prev.batteryHealth,
+      storageCapacity: res.storageCapacity || prev.storageCapacity,
+      color: res.color || prev.color,
+      diagnosticInfo: {
+        ...(prev.diagnosticInfo || {}),
+        ...res.diagnosticInfo
+      }
+    }));
+    setShowRawDumpInput(false);
+    setRawDumpText('');
   };
 
   const handleUpdate = () => {
@@ -188,7 +193,34 @@ export default function PhoneDetailModal({
         <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8 scrollbar-hide">
           {isEditing ? (
             <div className="space-y-6 pt-4">
-              <h3 className="text-xl font-black uppercase tracking-widest text-emerald-500 mb-6">Edit Device</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black uppercase tracking-widest text-emerald-500">Edit Device</h3>
+                <button 
+                  onClick={() => setShowRawDumpInput(s => !s)} 
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Auto-Fill from 3uTools Dump</span>
+                </button>
+              </div>
+
+              {showRawDumpInput && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-white/5 border border-emerald-500/30 p-4 rounded-3xl space-y-3 mb-6 overflow-hidden">
+                  <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Paste raw text output from 3uTools / iMazing device info:</p>
+                  <textarea 
+                    value={rawDumpText}
+                    onChange={e => setRawDumpText(e.target.value)}
+                    placeholder="ActivationState Activated&#10;DeviceName Mingma's iPhone&#10;ProductType iPhone15,3..."
+                    className="w-full h-32 bg-black/50 border border-white/10 rounded-2xl p-3 text-xs font-mono text-white/80 focus:outline-none focus:border-emerald-500"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowRawDumpInput(false)} className="px-3 py-2 bg-white/5 text-white/60 font-bold uppercase text-[10px] rounded-xl hover:bg-white/10 transition-colors cursor-pointer">Cancel</button>
+                    <button onClick={handleParseRawDumpEdit} className="px-4 py-2 bg-emerald-500 text-black font-black uppercase text-[10px] rounded-xl hover:bg-emerald-400 transition-colors cursor-pointer flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Apply Extracted Data
+                    </button>
+                  </div>
+                </motion.div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <EditField label="Model" value={editData.model || ''} onChange={v => setEditData(p => ({...p, model: v}))} />
                 <EditField label="IMEI" value={editData.imei || ''} onChange={v => setEditData(p => ({...p, imei: v}))} />
@@ -218,30 +250,17 @@ export default function PhoneDetailModal({
               )}
 
               <div className="space-y-3 pt-4 border-t border-white/10">
-                <h4 className="text-xs font-black uppercase tracking-widest text-white/40">Device Media & Verification</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/50 transition-all flex flex-col items-center text-center cursor-pointer group">
-                    <Camera className="w-6 h-6 text-white/40 group-hover:text-emerald-500 mb-2 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Upload Photo</span>
-                    <input type="file" className="hidden" onChange={e => handleImageUpload(e, 'phone')} accept="image/*" />
-                  </label>
-                  <label className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/50 transition-all flex flex-col items-center text-center cursor-pointer group">
-                    <FileText className="w-6 h-6 text-white/40 group-hover:text-emerald-500 mb-2 transition-colors" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Attach 3u Report</span>
-                    <input type="file" className="hidden" onChange={e => handleImageUpload(e, 'report')} accept="image/*" />
-                  </label>
-                </div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-white/40">Device Photo</h4>
+                <label className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/50 transition-all flex flex-col items-center text-center cursor-pointer group">
+                  <Camera className="w-6 h-6 text-white/40 group-hover:text-emerald-500 mb-2 transition-colors" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Upload Photo</span>
+                  <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                </label>
                 
                 {isUploading && (
                   <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl flex items-center gap-3">
                     <UploadCloud className="w-4 h-4 text-blue-500 animate-bounce" />
-                    <span className="text-xs font-bold text-blue-400">Uploading media to storage...</span>
-                  </div>
-                )}
-                {isScanning && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl flex items-center gap-3">
-                    <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
-                    <span className="text-xs font-bold text-emerald-500">Extracting specifications via OCR...</span>
+                    <span className="text-xs font-bold text-blue-400">Uploading photo to storage...</span>
                   </div>
                 )}
               </div>
@@ -433,6 +452,39 @@ export default function PhoneDetailModal({
             <Section title="Remarks">
               <div className="p-6 bg-white/5 border border-white/5 rounded-3xl">
                 <p className="text-sm font-medium text-white/50 italic leading-relaxed">"{phone.remarks}"</p>
+              </div>
+            </Section>
+          )}
+
+          {phone.diagnosticInfo && Object.keys(phone.diagnosticInfo).length > 0 && (
+            <Section title="Hardware Diagnostics & Specs">
+              <div className="bg-white/5 border border-white/5 rounded-[2.5rem] overflow-hidden">
+                <button 
+                  onClick={() => setShowDiagnostics(s => !s)}
+                  className="w-full p-6 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
+                      <Cpu className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Advanced Diagnostic Data</h4>
+                      <p className="text-xs text-white/40">{Object.keys(phone.diagnosticInfo).length} data points extracted from 3uTools</p>
+                    </div>
+                  </div>
+                  {showDiagnostics ? <ChevronUp className="w-5 h-5 text-white/40" /> : <ChevronDown className="w-5 h-5 text-white/40" />}
+                </button>
+
+                {showDiagnostics && (
+                  <div className="p-6 pt-0 border-t border-white/5 max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent space-y-2 font-mono text-xs">
+                    {Object.entries(phone.diagnosticInfo).map(([key, val]) => (
+                      <div key={key} className="flex justify-between py-2 border-b border-white/[0.03] gap-4">
+                        <span className="text-white/40 truncate">{key}</span>
+                        <span className="text-white font-bold text-right shrink-0">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Section>
           )}

@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  X, 
+  X,
   Camera, 
-  FileText, 
   ChevronRight, 
   ChevronLeft,
-  Loader2,
   CheckCircle2,
   Save,
   MapPin,
   User,
   Phone as PhoneIcon,
   Tag,
-  UploadCloud
+  UploadCloud,
+  Zap
 } from 'lucide-react';
+import { parse3uDump } from '../services/parse3uDump';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone } from '../types';
-import { scan3uReport } from '../services/ocrService';
 import { storage, ref, uploadBytes, getDownloadURL } from '../services/firebase';
 
 interface AddPhoneModalProps {
@@ -27,17 +26,18 @@ interface AddPhoneModalProps {
 
 export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModalProps) {
   const [step, setStep] = useState(1);
-  const [isScanning, setIsScanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showRawDumpInput, setShowRawDumpInput] = useState(false);
+  const [rawDumpText, setRawDumpText] = useState('');
   
   const [formData, setFormData] = useState<Partial<Phone>>({
     status: 'In Stock',
     buyDate: new Date().toISOString().split('T')[0],
   });
 
-  const [previews, setPreviews] = useState<{ phone?: string; report?: string }>({});
+  const [previews, setPreviews] = useState<{ phone?: string }>({});
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'phone' | 'report') => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -45,21 +45,17 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     try {
       // Local preview
       const url = URL.createObjectURL(file);
-      setPreviews(prev => ({ ...prev, [type]: url }));
+      setPreviews(prev => ({ ...prev, phone: url }));
 
       // Upload to Firebase Storage
-      const storageRef = ref(storage, `inventory/${Date.now()}_${type}_${file.name}`);
+      const storageRef = ref(storage, `inventory/${Date.now()}_phone_${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
       setFormData(prev => ({
         ...prev,
-        [type === 'phone' ? 'imageUrl' : 'reportUrl']: downloadURL
+        imageUrl: downloadURL
       }));
-
-      if (type === 'report') {
-        handleOCR(file);
-      }
     } catch (err) {
       console.error('Upload failed', err);
       alert('Upload failed. Please try again.');
@@ -68,24 +64,26 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     }
   };
 
-  const handleOCR = async (file: File) => {
-    setIsScanning(true);
-    try {
-      const results = await scan3uReport(file);
-      setFormData(prev => ({
-        ...prev,
-        model: results.model || prev.model,
-        imei: results.imei || prev.imei,
-        serialNumber: results.serialNumber || prev.serialNumber,
-        batteryHealth: results.batteryHealth || prev.batteryHealth,
-        storageCapacity: results.storageCapacity || prev.storageCapacity,
-      }));
-    } catch (err) {
-      console.error('OCR failed', err);
-    } finally {
-      setIsScanning(false);
-    }
+  const handleParseRawDump = () => {
+    if (!rawDumpText.trim()) return;
+    const res = parse3uDump(rawDumpText);
+    setFormData(prev => ({
+      ...prev,
+      model: res.model || prev.model,
+      imei: res.imei || prev.imei,
+      serialNumber: res.serialNumber || prev.serialNumber,
+      batteryHealth: res.batteryHealth || prev.batteryHealth,
+      storageCapacity: res.storageCapacity || prev.storageCapacity,
+      color: res.color || prev.color,
+      diagnosticInfo: {
+        ...(prev.diagnosticInfo || {}),
+        ...res.diagnosticInfo
+      }
+    }));
+    setShowRawDumpInput(false);
+    setRawDumpText('');
   };
+
 
   const handleSubmit = () => {
     if (!formData.buyPrice) {
@@ -128,40 +126,19 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 scrollbar-hide">
           {step === 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <p className="text-[10px] uppercase text-white/40 font-black tracking-widest ml-1">Phone Photo</p>
-                  <label className="relative aspect-square rounded-3xl bg-white/5 border-2 border-dashed border-white/10 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group">
-                    {previews.phone ? (
-                      <img src={previews.phone} className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        <Camera className="w-8 h-8 text-white/20 group-hover:text-emerald-500 transition-colors mb-2" />
-                        <span className="text-[10px] font-bold text-white/20">UPLOAD</span>
-                      </>
-                    )}
-                    <input type="file" className="hidden" onChange={(e) => handleImageChange(e, 'phone')} accept="image/*" />
-                  </label>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-[10px] uppercase text-white/40 font-black tracking-widest ml-1">3uTools Report</p>
-                  <label className="relative aspect-square rounded-3xl bg-white/5 border-2 border-dashed border-white/10 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group">
-                    {previews.report ? (
-                      <div className="relative w-full h-full">
-                        <img src={previews.report} className="w-full h-full object-cover opacity-50" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <FileText className="w-8 h-8 text-white/20 group-hover:text-emerald-500 transition-colors mb-2" />
-                        <span className="text-[10px] font-bold text-white/20">SCAN REPORT</span>
-                      </>
-                    )}
-                    <input type="file" className="hidden" onChange={(e) => handleImageChange(e, 'report')} accept="image/*" />
-                  </label>
-                </div>
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase text-white/40 font-black tracking-widest ml-1">Phone Photo</p>
+                <label className="relative h-48 rounded-3xl bg-white/5 border-2 border-dashed border-white/10 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group">
+                  {previews.phone ? (
+                    <img src={previews.phone} className="w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <Camera className="w-8 h-8 text-white/20 group-hover:text-emerald-500 transition-colors mb-2" />
+                      <span className="text-[10px] font-bold text-white/20">UPLOAD DEVICE PHOTO</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
+                </label>
               </div>
 
               {isUploading && (
@@ -171,24 +148,45 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
                 </div>
               )}
 
-              {isScanning && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
-                  <span className="text-xs font-bold text-emerald-500">Extracting data from 3uTools...</span>
-                </div>
-              )}
 
               <div className="space-y-4">
-                <InputGroup label="Device Specifications">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Model" value={formData.model} onChange={v => setFormData(p => ({ ...p, model: v }))} placeholder="e.g. iPhone 15 Pro" />
-                    <Field label="IMEI" value={formData.imei} onChange={v => setFormData(p => ({ ...p, imei: v }))} placeholder="15 Digit Number" />
-                    <Field label="Serial No" value={formData.serialNumber} onChange={v => setFormData(p => ({ ...p, serialNumber: v }))} />
-                    <Field label="Storage" value={formData.storageCapacity} onChange={v => setFormData(p => ({ ...p, storageCapacity: v }))} placeholder="e.g. 256GB" />
-                    <Field label="Battery Health" value={formData.batteryHealth?.toString()} onChange={v => setFormData(p => ({ ...p, batteryHealth: parseInt(v) }))} type="number" />
-                    <Field label="Color" value={formData.color} onChange={v => setFormData(p => ({ ...p, color: v }))} />
-                  </div>
-                </InputGroup>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/20 ml-1">Device Specifications</h3>
+                  <button 
+                    onClick={() => setShowRawDumpInput(s => !s)} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Auto-Fill from 3uTools Dump</span>
+                  </button>
+                </div>
+
+                {showRawDumpInput && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-white/5 border border-emerald-500/30 p-4 rounded-3xl space-y-3 overflow-hidden">
+                    <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Paste raw text output from 3uTools / iMazing device info:</p>
+                    <textarea 
+                      value={rawDumpText}
+                      onChange={e => setRawDumpText(e.target.value)}
+                      placeholder="ActivationState Activated&#10;DeviceName Mingma's iPhone&#10;ProductType iPhone15,3..."
+                      className="w-full h-32 bg-black/50 border border-white/10 rounded-2xl p-3 text-xs font-mono text-white/80 focus:outline-none focus:border-emerald-500"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setShowRawDumpInput(false)} className="px-3 py-2 bg-white/5 text-white/60 font-bold uppercase text-[10px] rounded-xl hover:bg-white/10 transition-colors cursor-pointer">Cancel</button>
+                      <button onClick={handleParseRawDump} className="px-4 py-2 bg-emerald-500 text-black font-black uppercase text-[10px] rounded-xl hover:bg-emerald-400 transition-colors cursor-pointer flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Apply Extracted Data
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Model" value={formData.model} onChange={v => setFormData(p => ({ ...p, model: v }))} placeholder="e.g. iPhone 15 Pro" />
+                  <Field label="IMEI" value={formData.imei} onChange={v => setFormData(p => ({ ...p, imei: v }))} placeholder="15 Digit Number" />
+                  <Field label="Serial No" value={formData.serialNumber} onChange={v => setFormData(p => ({ ...p, serialNumber: v }))} />
+                  <Field label="Storage" value={formData.storageCapacity} onChange={v => setFormData(p => ({ ...p, storageCapacity: v }))} placeholder="e.g. 256GB" />
+                  <Field label="Battery Health" value={formData.batteryHealth?.toString()} onChange={v => setFormData(p => ({ ...p, batteryHealth: parseInt(v) }))} type="number" />
+                  <Field label="Color" value={formData.color} onChange={v => setFormData(p => ({ ...p, color: v }))} />
+                </div>
               </div>
             </motion.div>
           )}

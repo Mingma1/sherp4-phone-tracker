@@ -15,7 +15,6 @@ import {
   ArrowUpRight,
   LogOut,
   Lock,
-  Key,
   Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +41,6 @@ import {
 console.log('App initialization started...');
 
 export default function App() {
-  const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history' | 'settings'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,29 +146,6 @@ export default function App() {
     }
   };
 
-  // 1. Setup API Key
-  if (!apiKey) {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white">
-        <Key className="w-12 h-12 text-emerald-500 mb-6" />
-        <h2 className="text-2xl font-black mb-2">Secure AI Setup</h2>
-        <p className="text-white/40 text-sm mb-8">Paste your Gemini API Key to enable OCR scanning.</p>
-        <input 
-          type="password" 
-          placeholder="Paste Key & Press Enter"
-          className="w-full max-w-[300px] bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-center text-white focus:border-emerald-500 outline-none"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const val = (e.target as HTMLInputElement).value;
-              localStorage.setItem('GEMINI_API_KEY', val);
-              setApiKey(val);
-            }
-          }}
-        />
-        <p className="text-white/20 text-[10px] mt-4 uppercase tracking-widest font-black">Stored locally in your browser</p>
-      </div>
-    );
-  }
 
   // 2. Strict Google Cloud Authentication Screen
   if (!currentUser) {
@@ -206,15 +181,6 @@ export default function App() {
           <span>Sign In with Google</span>
         </button>
 
-        <button 
-          onClick={() => {
-            localStorage.removeItem('GEMINI_API_KEY');
-            setApiKey('');
-          }}
-          className="mt-12 text-white/20 text-[10px] uppercase font-black tracking-widest hover:text-white/40 transition-colors"
-        >
-          Reset API Key
-        </button>
       </div>
     );
   }
@@ -371,35 +337,6 @@ export default function App() {
           <div className="mt-8 space-y-8 max-w-xl mx-auto">
             <h2 className="text-lg font-bold uppercase tracking-wider text-white/60 px-2">System Configuration</h2>
             
-            <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
-              <div className="flex items-center gap-4 border-b border-white/5 pb-6">
-                <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
-                  <Key className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Gemini OCR Key</h3>
-                  <p className="text-xs text-white/40">Used for background 3uTools report extraction</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black tracking-widest text-white/40">Current Key</label>
-                <div className="flex items-center justify-between bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-xs text-white/60">
-                  <span>{apiKey.slice(0, 6)}••••••••••••••••••••••••••••{apiKey.slice(-4)}</span>
-                  <button 
-                    onClick={() => {
-                      if (confirm('Remove key and re-authenticate?')) {
-                        localStorage.removeItem('GEMINI_API_KEY');
-                        setApiKey('');
-                      }
-                    }}
-                    className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors cursor-pointer"
-                  >
-                    Disconnect
-                  </button>
-                </div>
-              </div>
-            </div>
 
             <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
               <div className="flex items-center gap-4 border-b border-white/5 pb-6">
