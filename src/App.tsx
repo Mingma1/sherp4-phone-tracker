@@ -201,8 +201,8 @@ export default function App() {
       const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
       return acc + ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
     }, 0),
-    totalInStock: phones.filter(p => p && p.status === 'In Stock').length,
-    capitalInvested: phones.filter(p => p && p.status === 'In Stock').reduce((acc, p) => acc + (p.buyPrice || 0), 0),
+    totalInStock: phones.filter(p => p && p.status !== 'Sold').length,
+    capitalInvested: phones.filter(p => p && p.status !== 'Sold').reduce((acc, p) => acc + (p.buyPrice || 0), 0),
     soldCount: phones.filter(p => p && p.status === 'Sold').length
   };
 
@@ -269,14 +269,14 @@ export default function App() {
                 Active Stock
               </h2>
               <span className="text-sm font-mono bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
-                {phones.filter(p => p.status === 'In Stock').length} Items
+                {phones.filter(p => p.status !== 'Sold').length} Items
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <AnimatePresence mode="popLayout">
                 {filteredPhones
-                  .filter(p => p.status === 'In Stock')
+                  .filter(p => p.status !== 'Sold')
                   .map((phone) => (
                     <PhoneCard key={phone.id} phone={phone} onClick={() => setSelectedPhone(phone)} />
                   ))}
@@ -503,7 +503,8 @@ function PhoneCard({ phone, onClick }: PhoneCardProps) {
           <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded-md backdrop-blur-md ${
             phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 
             phone.status === 'Sold' ? 'bg-white/20 text-white' :
-            'bg-amber-500/80 text-black'
+            phone.status === 'Personal Use' ? 'bg-purple-500 text-white' :
+            'bg-amber-500 text-black'
           }`}>
             {phone.status}
           </span>
