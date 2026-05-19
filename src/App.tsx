@@ -202,7 +202,10 @@ export default function App() {
       return acc + ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
     }, 0),
     totalInStock: phones.filter(p => p && p.status !== 'Sold').length,
-    capitalInvested: phones.filter(p => p && p.status !== 'Sold').reduce((acc, p) => acc + (p.buyPrice || 0), 0),
+    capitalInvested: phones.filter(p => p && p.status !== 'Sold').reduce((acc, p) => {
+      const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
+      return acc + (p.buyPrice || 0) + phoneExpenses;
+    }, 0),
     soldCount: phones.filter(p => p && p.status === 'Sold').length
   };
 
@@ -278,7 +281,7 @@ export default function App() {
                 {filteredPhones
                   .filter(p => p.status !== 'Sold')
                   .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} onClick={() => setSelectedPhone(phone)} />
+                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
                   ))}
               </AnimatePresence>
             </div>
@@ -302,7 +305,7 @@ export default function App() {
                 {filteredPhones
                   .filter(p => p.status === 'Sold')
                   .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} onClick={() => setSelectedPhone(phone)} />
+                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
                   ))}
               </AnimatePresence>
             </div>
@@ -471,11 +474,14 @@ export default function App() {
 
 interface PhoneCardProps {
   phone: Phone;
+  expenses: Expense[];
   onClick: () => void;
   key?: string | number;
 }
 
-function PhoneCard({ phone, onClick }: PhoneCardProps) {
+function PhoneCard({ phone, expenses, onClick }: PhoneCardProps) {
+  const totalCost = phone.buyPrice + expenses.filter(e => e.phoneId === phone.id).reduce((sum, e) => sum + e.amount, 0);
+
   return (
     <motion.div
       layout
@@ -528,7 +534,7 @@ function PhoneCard({ phone, onClick }: PhoneCardProps) {
         </div>
         
         <div className="flex items-center justify-between mt-1">
-          <p className="font-mono text-emerald-400 font-black text-sm">रु {phone.buyPrice.toLocaleString()}</p>
+          <p className="font-mono text-emerald-400 font-black text-sm">रु {totalCost.toLocaleString()}</p>
           <span className="text-[9px] font-mono text-white/40 font-bold">
             {phone.batteryHealth ? `${phone.batteryHealth}%` : ''}
           </span>
