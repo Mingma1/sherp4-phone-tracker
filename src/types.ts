@@ -27,6 +27,7 @@ export interface Phone {
   imageUrl?: string;
   reportUrl?: string;
   remarks?: string;
+  diagnosticInfo?: Record<string, string>;
 }
 
 export interface Expense {
