@@ -150,12 +150,28 @@ export default function PhoneDetailModal({
                 <EditField label="Battery %" type="number" value={editData.batteryHealth?.toString() || ''} onChange={v => setEditData(p => ({...p, batteryHealth: parseInt(v)}))} />
               </div>
               <EditField label="Buy Location" value={editData.buyLocation || ''} onChange={v => setEditData(p => ({...p, buyLocation: v}))} />
-              <EditField label="Seller Details" value={editData.sellerName || ''} onChange={v => setEditData(p => ({...p, sellerName: v}))} />
+              <EditField label="Seller Name" value={editData.sellerName || ''} onChange={v => setEditData(p => ({...p, sellerName: v}))} />
+              <EditField label="Seller Contact" value={editData.sellerNumber || ''} onChange={v => setEditData(p => ({...p, sellerNumber: v}))} />
               <EditField label="Remarks" value={editData.remarks || ''} onChange={v => setEditData(p => ({...p, remarks: v}))} />
               
+              {phone.status === 'Sold' && (
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-blue-400">Edit Sale Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <EditField label="Sold Price" type="number" value={editData.sellPrice?.toString() || ''} onChange={v => setEditData(p => ({...p, sellPrice: parseFloat(v)}))} />
+                    <EditField label="Sold Date" type="date" value={editData.sellDate || ''} onChange={v => setEditData(p => ({...p, sellDate: v}))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <EditField label="Buyer Name" value={editData.buyerName || ''} onChange={v => setEditData(p => ({...p, buyerName: v}))} />
+                    <EditField label="Buyer Number" value={editData.buyerNumber || ''} onChange={v => setEditData(p => ({...p, buyerNumber: v}))} />
+                  </div>
+                  <EditField label="Sold Location" value={editData.sellLocation || ''} onChange={v => setEditData(p => ({...p, sellLocation: v}))} />
+                </div>
+              )}
+              
               <div className="flex gap-3 pt-6">
-                <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-white/5 rounded-3xl font-black uppercase text-[10px] tracking-widest">Discard</button>
-                <button onClick={handleUpdate} className="flex-[2] py-5 bg-emerald-500 text-black rounded-3xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20">Save Changes</button>
+                <button onClick={() => setIsEditing(false)} className="flex-1 py-5 bg-white/5 rounded-3xl font-black uppercase text-[10px] tracking-widest cursor-pointer hover:bg-white/10 transition-colors">Discard</button>
+                <button onClick={handleUpdate} className="flex-[2] py-5 bg-emerald-500 text-black rounded-3xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20 cursor-pointer hover:bg-emerald-400 transition-colors">Save Changes</button>
               </div>
             </div>
           ) : (
