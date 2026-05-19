@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -7,14 +7,14 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.apiKey ? firebaseConfig.firestoreDatabaseId : undefined);
-export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
+const auth = getAuth(app);
+const db = getFirestore(app, firebaseConfig.apiKey ? firebaseConfig.firestoreDatabaseId : undefined);
+const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
 
-export const signIn = () => signInWithRedirect(auth, googleProvider);
-export const signOut = () => auth.signOut();
-export const handleRedirectResult = () => getRedirectResult(auth);
+const signIn = () => signInWithPopup(auth, googleProvider);
+const signOut = () => auth.signOut();
+const handleRedirectResult = () => getRedirectResult(auth);
 
 function handleFirestoreError(error: unknown, operationType: string, path: string | null) {
   const errInfo = {
@@ -31,4 +31,4 @@ function handleFirestoreError(error: unknown, operationType: string, path: strin
   throw new Error(JSON.stringify(errInfo));
 }
 
-export { onAuthStateChanged, type User, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, ref, uploadBytes, getDownloadURL, handleFirestoreError };
+export { auth, db, storage, signIn, signOut, onAuthStateChanged, type User, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, ref, uploadBytes, getDownloadURL, handleFirestoreError };
