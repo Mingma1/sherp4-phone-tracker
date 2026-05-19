@@ -289,9 +289,23 @@ export default function PhoneDetailModal({
                   <div className="p-2 bg-emerald-500/20 rounded-xl">
                     <DollarSign className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <p className="text-sm font-bold text-white/60">Buy Price</p>
+                  <div>
+                    <p className="text-sm font-bold text-white/60">Buy Price</p>
+                    {expenses.length > 0 && (
+                      <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mt-0.5">
+                        + रु {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} overhead
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xl font-black font-mono text-emerald-400">रु {phone.buyPrice.toLocaleString()}</p>
+                <div className="text-right">
+                  <p className="text-xl font-black font-mono text-emerald-400">रु {phone.buyPrice.toLocaleString()}</p>
+                  {expenses.length > 0 && (
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1">
+                      Total: रु {(phone.buyPrice + expenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -332,7 +346,7 @@ export default function PhoneDetailModal({
                 
                 <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
                   <p className="text-[10px] uppercase font-black text-emerald-500 mb-1">Profit</p>
-                  <p className="text-lg font-black font-mono text-emerald-400">रु {((phone.sellPrice || 0) - phone.buyPrice).toLocaleString()}</p>
+                  <p className="text-lg font-black font-mono text-emerald-400">रु {((phone.sellPrice || 0) - phone.buyPrice - expenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
