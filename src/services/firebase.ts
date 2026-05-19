@@ -31,4 +31,4 @@ function handleFirestoreError(error: unknown, operationType: string, path: strin
   throw new Error(JSON.stringify(errInfo));
 }
 
-export { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, ref, uploadBytes, getDownloadURL, handleFirestoreError };
+export { onAuthStateChanged, type User, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, ref, uploadBytes, getDownloadURL, handleFirestoreError };
