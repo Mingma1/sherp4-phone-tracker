@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, InventoryStats, Expense } from './types';
 import AddPhoneModal from './components/AddPhoneModal';
 import PhoneDetailModal from './components/PhoneDetailModal';
+import SakuraPetals from './components/SakuraPetals';
+import { AnimeQuoteCard, TrendingAnimeStrip, MangaSpotlight } from './components/AnimeWidgets';
 import { 
   db, 
   collection, 
@@ -150,12 +152,14 @@ export default function App() {
   // 2. Strict Google Cloud Authentication Screen
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white">
-        <Lock className="w-12 h-12 text-white/20 mb-6" />
-        <h2 className="text-2xl font-black mb-2 tracking-tighter">Private Cloud Inventory</h2>
-        <p className="text-white/40 text-sm mb-12 max-w-[280px] leading-relaxed">
-          Access is restricted to verified Google Cloud accounts only.
-        </p>
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden">
+        <SakuraPetals count={16} />
+        <div className="relative z-10 flex flex-col items-center">
+          <Lock className="w-12 h-12 text-white/20 mb-6" />
+          <h2 className="text-2xl font-black mb-2 tracking-tighter">Private Cloud Inventory</h2>
+          <p className="text-white/40 text-sm mb-12 max-w-[280px] leading-relaxed">
+            Access is restricted to verified Google Cloud accounts only.
+          </p>
 
         <button 
           onClick={async () => {
@@ -181,6 +185,7 @@ export default function App() {
           <span>Sign In with Google</span>
         </button>
 
+        </div>
       </div>
     );
   }
@@ -215,7 +220,9 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
+    <div className="relative min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
+      <SakuraPetals count={10} />
+
       <div className="h-6 bg-black" />
 
       <header className="px-4 sm:px-6 pt-6 pb-4 sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/5">
@@ -263,7 +270,20 @@ export default function App() {
         </div>
       </header>
 
-      <main className="px-3 sm:px-4 pb-28 max-w-5xl mx-auto">
+      <main className="relative z-10 px-3 sm:px-4 pb-28 max-w-5xl mx-auto">
+        {/* ─── Anime / Manga Fun Zone ─── */}
+        {activeTab === 'inventory' && (
+          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-4">
+              <AnimeQuoteCard />
+              <TrendingAnimeStrip />
+            </div>
+            <div>
+              <MangaSpotlight />
+            </div>
+          </div>
+        )}
+
         {activeTab === 'inventory' && (
           <div className="mt-6 space-y-6">
             <div className="flex items-center justify-between px-2">
