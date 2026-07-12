@@ -22,6 +22,7 @@ import type { Phone, InventoryStats, Expense } from './types';
 import AddPhoneModal from './components/AddPhoneModal';
 import PhoneDetailModal from './components/PhoneDetailModal';
 import SakuraPetals from './components/SakuraPetals';
+import JapaneseBackdrop from './components/JapaneseBackdrop';
 import { 
   db, 
   collection, 
@@ -152,6 +153,7 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden">
+        <JapaneseBackdrop />
         <SakuraPetals count={16} />
         <div className="relative z-10 flex flex-col items-center">
           <Lock className="w-12 h-12 text-white/20 mb-6" />
@@ -220,6 +222,7 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
+      <JapaneseBackdrop />
       <SakuraPetals count={10} />
 
       <div className="h-6 bg-black" />
