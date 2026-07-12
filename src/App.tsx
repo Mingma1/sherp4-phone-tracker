@@ -22,7 +22,6 @@ import type { Phone, InventoryStats, Expense } from './types';
 import AddPhoneModal from './components/AddPhoneModal';
 import PhoneDetailModal from './components/PhoneDetailModal';
 import SakuraPetals from './components/SakuraPetals';
-import { AnimeQuoteCard, TrendingAnimeStrip, MangaSpotlight } from './components/AnimeWidgets';
 import { 
   db, 
   collection, 
@@ -271,19 +270,6 @@ export default function App() {
       </header>
 
       <main className="relative z-10 px-3 sm:px-4 pb-28 max-w-5xl mx-auto">
-        {/* ─── Anime / Manga Fun Zone ─── */}
-        {activeTab === 'inventory' && (
-          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-4">
-              <AnimeQuoteCard />
-              <TrendingAnimeStrip />
-            </div>
-            <div>
-              <MangaSpotlight />
-            </div>
-          </div>
-        )}
-
         {activeTab === 'inventory' && (
           <div className="mt-6 space-y-6">
             <div className="flex items-center justify-between px-2">
