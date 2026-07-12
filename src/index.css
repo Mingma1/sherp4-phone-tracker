@@ -43,3 +43,92 @@
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
+
+/* Hide scrollbars on horizontal strips while keeping scrollability */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Falling Sakura Petals ────────────────────────────────────────────── */
+.sakura-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.sakura-petal {
+  position: absolute;
+  top: -24px;
+  border-radius: 50% 0 50% 0;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 4px rgba(255, 182, 213, 0.4));
+  animation-name: sakura-fall;
+  animation-timing-function: cubic-bezier(0.4, 0.2, 0.6, 0.8);
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes sakura-fall {
+  0% {
+    transform: translate3d(0, -24px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate3d(var(--drift, 0), 50vh, 0) rotate(calc(var(--spin, 360deg) / 2));
+  }
+  90% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate3d(calc(var(--drift, 0) * -1), 105vh, 0) rotate(var(--spin, 360deg));
+    opacity: 0;
+  }
+}
+
+/* ─── Japanese Scenic Backdrop ─────────────────────────────────────────── */
+.jp-backdrop {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 55vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+}
+
+.jp-backdrop-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.jp-layer-fuji { color: #2a1a3e; }
+.jp-layer-mountains { color: #14101f; }
+.jp-layer-torii { color: #7f1d1d; opacity: 0.85; }
+.jp-layer-temple { color: #1a1020; }
+.jp-layer-ground { color: #000000; }
+
+/* ─── Lightning Flash ──────────────────────────────────────────────────── */
+.lightning-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at 30% 0%, rgba(191, 219, 254, 0.5), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.06s ease-out;
+}
+
+.lightning-overlay.lightning-flash {
+  opacity: 1;
+}
