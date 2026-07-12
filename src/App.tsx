@@ -4,25 +4,25 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
-  Search, 
   Plus, 
-  Smartphone, 
-  TrendingUp, 
-  History, 
-  Settings,
-  Package,
-  ArrowUpRight,
   LogOut,
   Lock,
-  Database
+  Moon,
+  Sun,
+  Bell,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, InventoryStats, Expense } from './types';
 import AddPhoneModal from './components/AddPhoneModal';
 import PhoneDetailModal from './components/PhoneDetailModal';
+import PhoneList from './components/PhoneList';
 import SakuraPetals from './components/SakuraPetals';
 import JapaneseBackdrop from './components/JapaneseBackdrop';
+import Dashboard from './pages/Dashboard';
+import { useNotifications } from './hooks/useNotifications';
 import { 
   db, 
   collection, 
@@ -42,15 +42,371 @@ import {
 
 console.log('App initialization started...');
 
-export default function App() {
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history' | 'settings'>('inventory');
+function NavBar({ currentUser, onLogout, onAddPhone, darkMode, setDarkMode, notifications, onRequestNotification }: any) {
+  const location = useLocation();
+  
+  const isActive = (path: string) => location.pathname === path ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-600 dark:text-gray-400';
+
+  return (
+    <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">SHERP4</h1>
+            <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded">Tracker</span>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="hidden md:flex gap-6">
+            <Link to="/inventory" className={`pb-2 font-medium ${isActive('/inventory')} hover:text-blue-600 dark:hover:text-blue-400 transition-colors`}>
+              Inventory
+            </Link>
+            <Link to="/dashboard" className={`pb-2 font-medium ${isActive('/dashboard')} hover:text-blue-600 dark:hover:text-blue-400 transition-colors`}>
+              Dashboard
+            </Link>
+            <Link to="/expenses" className={`pb-2 font-medium ${isActive('/expenses')} hover:text-blue-600 dark:hover:text-blue-400 transition-colors`}>
+              Expenses
+            </Link>
+          </nav>
+
+          {/* Right Controls */}
+          <div className="flex items-center gap-2">
+            {/* Notifications Badge */}
+            <button 
+              onClick={onRequestNotification}
+              className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              title="Enable Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            {/* Add Phone Button */}
+            <button 
+              onClick={onAddPhone}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Phone</span>
+            </button>
+
+            {/* Logout Button */}
+            <button 
+              onClick={onLogout}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function InventoryPage({ phones, expenses, searchQuery, setSearchQuery, onSelectPhone, onAddPhone, ocrLoading }: any) {
+  return (
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input 
+            type="text"
+            placeholder="Search IMEI or Model..."
+            className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg py-3 pl-12 pr-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <PhoneList 
+        phones={phones}
+        onSelectPhone={onSelectPhone}
+        searchQuery={searchQuery}
+        ocrLoading={ocrLoading}
+      />
+    </div>
+  );
+}
+
+function ExpensesPage({ phones, expenses, onAddExpense, onDeleteExpense }: any) {
+  const [selectedPhoneId, setSelectedPhoneId] = useState('');
+  const [category, setCategory] = useState<'Repair' | 'Misc'>('Repair');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPhoneId || !description || !amount) return;
+
+    await onAddExpense({
+      phoneId: selectedPhoneId,
+      category,
+      description,
+      amount: parseFloat(amount),
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    setSelectedPhoneId('');
+    setCategory('Repair');
+    setDescription('');
+    setAmount('');
+  };
+
+  const phoneExpenses = selectedPhoneId 
+    ? expenses.filter((e: Expense) => e.phoneId === selectedPhoneId)
+    : expenses;
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Add Expense Form */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 h-fit">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Expense</h2>
+          <form onSubmit={handleAddExpense} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone
+              </label>
+              <select
+                value={selectedPhoneId}
+                onChange={(e) => setSelectedPhoneId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Phone</option>
+                {phones.map((p: Phone) => (
+                  <option key={p.id} value={p.id}>{p.model} ({p.imei})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as 'Repair' | 'Misc')}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Repair">Repair</option>
+                <option value="Misc">Miscellaneous</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Description
+              </label>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Screen repair"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Amount ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors"
+            >
+              Add Expense
+            </button>
+          </form>
+        </div>
+
+        {/* Expenses List */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Expenses</h2>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {phoneExpenses.length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-400 text-center py-8">No expenses recorded</p>
+            ) : (
+              phoneExpenses.map((exp: Expense) => (
+                <div key={exp.id} className="flex justify-between items-start p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 dark:text-white">{exp.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{exp.category} • {exp.date}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-gray-900 dark:text-white">${exp.amount.toFixed(2)}</p>
+                    <button
+                      onClick={() => onDeleteExpense(exp.id)}
+                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppContent({ phones, expenses, currentUser, onLogout, darkMode, setDarkMode }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState<Phone | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const { notifications, requestNotificationPermission, dismissNotification } = useNotifications(phones, expenses);
+
+  const handleSavePhone = async (newPhone: Omit<Phone, 'id' | 'createdAt'>) => {
+    try {
+      await addDoc(collection(db, 'phones'), {
+        ...newPhone,
+        createdAt: Date.now(),
+      });
+      setIsAddModalOpen(false);
+    } catch (err) {
+      console.error('Error saving phone:', err);
+    }
+  };
+
+  const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'expenses'), expense);
+    } catch (err) {
+      console.error('Error adding expense:', err);
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'expenses', id));
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+    }
+  };
+
+  const handleUpdatePhone = async (id: string, updates: Partial<Phone>) => {
+    try {
+      await updateDoc(doc(db, 'phones', id), updates);
+      setSelectedPhone(null);
+    } catch (err) {
+      console.error('Error updating phone:', err);
+    }
+  };
+
+  const handleDeletePhone = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'phones', id));
+      setSelectedPhone(null);
+    } catch (err) {
+      console.error('Error deleting phone:', err);
+    }
+  };
+
+  return (
+    <div className={darkMode ? 'dark' : ''}>
+      <div className="bg-white dark:bg-gray-900 min-h-screen transition-colors">
+        <NavBar 
+          currentUser={currentUser}
+          onLogout={onLogout}
+          onAddPhone={() => setIsAddModalOpen(true)}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          notifications={notifications}
+          onRequestNotification={requestNotificationPermission}
+        />
+
+        {/* Notifications Display */}
+        {notifications.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900 border-b border-blue-200 dark:border-blue-700">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-2">
+              {notifications.map(notif => (
+                <div key={notif.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border border-blue-200 dark:border-blue-700">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{notif.message}</p>
+                  {notif.dismissible && (
+                    <button
+                      onClick={() => dismissNotification(notif.id)}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Routes */}
+        <Routes>
+          <Route path="/inventory" element={<InventoryPage phones={phones} expenses={expenses} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onSelectPhone={setSelectedPhone} onAddPhone={() => setIsAddModalOpen(true)} ocrLoading={ocrLoading} />} />
+          <Route path="/dashboard" element={<Dashboard phones={phones} expenses={expenses} />} />
+          <Route path="/expenses" element={<ExpensesPage phones={phones} expenses={expenses} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />} />
+          <Route path="/" element={<InventoryPage phones={phones} expenses={expenses} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onSelectPhone={setSelectedPhone} onAddPhone={() => setIsAddModalOpen(true)} ocrLoading={ocrLoading} />} />
+        </Routes>
+
+        <AnimatePresence>
+          {isAddModalOpen && (
+            <AddPhoneModal 
+              isOpen={isAddModalOpen}
+              onClose={() => setIsAddModalOpen(false)}
+              onSave={handleSavePhone}
+              setOcrLoading={setOcrLoading}
+              ocrLoading={ocrLoading}
+            />
+          )}
+          {selectedPhone && (
+            <PhoneDetailModal
+              phone={selectedPhone}
+              isOpen={!!selectedPhone}
+              onClose={() => setSelectedPhone(null)}
+              onUpdate={handleUpdatePhone}
+              onDelete={handleDeletePhone}
+              expenses={expenses.filter((e: Expense) => e.phoneId === selectedPhone.id)}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [loading, setLoading] = useState(true);
   const [phones, setPhones] = useState<Phone[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -102,54 +458,7 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const handleSavePhone = async (newPhone: Omit<Phone, 'id' | 'createdAt'>) => {
-    try {
-      await addDoc(collection(db, 'phones'), {
-        ...newPhone,
-        createdAt: Date.now(),
-      });
-      setIsAddModalOpen(false);
-    } catch (err) {
-      console.error('Error saving phone:', err);
-    }
-  };
-
-  const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
-    try {
-      await addDoc(collection(db, 'expenses'), expense);
-    } catch (err) {
-      console.error('Error adding expense:', err);
-    }
-  };
-
-  const handleDeleteExpense = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'expenses', id));
-    } catch (err) {
-      console.error('Error deleting expense:', err);
-    }
-  };
-
-  const handleUpdatePhone = async (id: string, updates: Partial<Phone>) => {
-    try {
-      await updateDoc(doc(db, 'phones', id), updates);
-      setSelectedPhone(null);
-    } catch (err) {
-      console.error('Error updating phone:', err);
-    }
-  };
-
-  const handleDeletePhone = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'phones', id));
-      setSelectedPhone(null);
-    } catch (err) {
-      console.error('Error deleting phone:', err);
-    }
-  };
-
-
-  // 2. Strict Google Cloud Authentication Screen
+  // Authentication screen
   if (!currentUser) {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden">
@@ -201,374 +510,19 @@ export default function App() {
     );
   }
 
-  const stats: InventoryStats = {
-    totalProfit: phones.reduce((acc, p) => {
-      if (!p || p.status !== 'Sold') return acc;
-      const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
-      return acc + ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
-    }, 0),
-    totalInStock: phones.filter(p => p && p.status !== 'Sold').length,
-    capitalInvested: phones.filter(p => p && p.status !== 'Sold').reduce((acc, p) => {
-      const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
-      return acc + (p.buyPrice || 0) + phoneExpenses;
-    }, 0),
-    soldCount: phones.filter(p => p && p.status === 'Sold').length
-  };
-
-  const filteredPhones = phones.filter(p => 
-    p.model.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.imei.includes(searchQuery)
-  );
-
   return (
-    <div className="relative min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
-      <JapaneseBackdrop />
-      <SakuraPetals count={10} />
-
-      <div className="h-6 bg-black" />
-
-      <header className="px-4 sm:px-6 pt-6 pb-4 sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex justify-between items-center">
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2 font-display">
-                SHERP4
-                <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md tracking-widest uppercase">
-                  Solo Level • S-Rank
-                </span>
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={async () => {
-                  await signOut();
-                  setCurrentUser(null);
-                }}
-                className="p-2.5 bg-white/5 rounded-xl border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10 transition-all cursor-pointer"
-                title="Lock Session"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                className="px-4 h-10 bg-emerald-500 hover:bg-emerald-400 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer font-black text-black text-xs uppercase tracking-wider font-display"
-              >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Add Item</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
-            <input 
-              type="text"
-              placeholder="Search IMEI or Model..."
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.05] transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 px-3 sm:px-4 pb-28 max-w-5xl mx-auto">
-        {activeTab === 'inventory' && (
-          <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-base font-bold uppercase tracking-wider text-white/60 flex items-center gap-2">
-                <Package className="w-5 h-5 text-emerald-500" />
-                Active Stock
-              </h2>
-              <span className="text-sm font-mono bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
-                {phones.filter(p => p.status !== 'Sold').length} Items
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <AnimatePresence mode="popLayout">
-                {filteredPhones
-                  .filter(p => p.status !== 'Sold')
-                  .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
-                  ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-base font-bold uppercase tracking-wider text-white/60 flex items-center gap-2">
-                <History className="w-5 h-5 text-blue-500" />
-                Sold History
-              </h2>
-              <span className="text-sm font-mono bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">
-                {phones.filter(p => p.status === 'Sold').length} Items
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <AnimatePresence mode="popLayout">
-                {filteredPhones
-                  .filter(p => p.status === 'Sold')
-                  .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
-                  ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'stats' && (
-          <div className="mt-8 space-y-8">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white/60 px-2">Financials</h2>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex flex-col gap-2">
-                <p className="text-[11px] uppercase text-white/40 font-black tracking-widest">Total Profit</p>
-                <div className="flex items-center gap-1 text-emerald-400">
-                  <ArrowUpRight className="w-5 h-5" />
-                  <p className="text-2xl font-black font-mono tracking-tighter">रु {stats.totalProfit.toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex flex-col gap-2">
-                <p className="text-[11px] uppercase text-white/40 font-black tracking-widest">In Stock</p>
-                <p className="text-3xl font-black font-mono">{stats.totalInStock}</p>
-              </div>
-            </div>
-
-            <div className="bg-emerald-500 p-8 rounded-[3rem] text-black shadow-2xl shadow-emerald-500/20">
-              <p className="text-xs uppercase font-black tracking-widest mb-2 opacity-60">Capital Invested</p>
-              <p className="text-4xl font-black font-mono tracking-tighter">रु {stats.capitalInvested.toLocaleString()}</p>
-            </div>
-          </div>
-        )}
-        {activeTab === 'settings' && (
-          <div className="mt-8 space-y-8 max-w-xl mx-auto">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white/60 px-2">System Configuration</h2>
-            
-
-            <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
-              <div className="flex items-center gap-4 border-b border-white/5 pb-6">
-                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
-                  <Database className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Inventory Backup</h3>
-                  <p className="text-xs text-white/40">Download a complete snapshot of all stock and expenses</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => {
-                  const backup = {
-                    timestamp: new Date().toISOString(),
-                    phones,
-                    expenses
-                  };
-                  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `sherp4_backup_${new Date().toISOString().split('T')[0]}.json`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                }}
-                className="w-full py-4 bg-white/10 hover:bg-white/15 text-white font-black uppercase text-xs tracking-wider rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-white/10"
-              >
-                Download JSON Backup
-              </button>
-            </div>
-
-            <div className="bg-red-500/5 border border-red-500/10 p-8 rounded-[2.5rem] space-y-6 text-center">
-              <div className="border-b border-red-500/10 pb-6">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-red-400 mb-1">Security & Cloud Access</h3>
-                <p className="text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
-                  Manage active sessions and authorized Google accounts.
-                </p>
-              </div>
-              
-              {currentUser && (
-                <div className="flex items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center font-black text-black text-xs">
-                      {currentUser.email?.[0].toUpperCase()}
-                    </div>
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-bold text-white">{currentUser.email}</p>
-                      <p className="text-[9px] uppercase tracking-wider text-emerald-400 font-black">Authorized Cloud Session</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={async () => {
-                      if (confirm('Sign out from Cloud Session?')) {
-                        await signOut();
-                        setCurrentUser(null);
-                      }
-                    }}
-                    className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors cursor-pointer"
-                  >
-                    Cloud Logout
-                  </button>
-                </div>
-              )}
-
-              <div>
-                <button 
-                  onClick={async () => {
-                    await signOut();
-                    setCurrentUser(null);
-                  }}
-                  className="w-full py-4 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-black uppercase text-xs tracking-widest rounded-2xl transition-all cursor-pointer border border-red-500/30 flex items-center justify-center gap-2 shadow-xl"
-                >
-                  <LogOut className="w-4 h-4" /> Lock Application Screen
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <AddPhoneModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onSave={handleSavePhone} 
+    <Router>
+      <AppContent 
+        phones={phones}
+        expenses={expenses}
+        currentUser={currentUser}
+        onLogout={async () => {
+          await signOut();
+          setCurrentUser(null);
+        }}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
       />
-
-      <PhoneDetailModal 
-        phone={selectedPhone} 
-        expenses={expenses.filter(e => e.phoneId === selectedPhone?.id)}
-        onClose={() => setSelectedPhone(null)} 
-        onUpdate={handleUpdatePhone}
-        onDelete={handleDeletePhone}
-        onAddExpense={handleAddExpense}
-        onDeleteExpense={handleDeleteExpense}
-      />
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/5 px-6 pt-3 pb-6 z-[60]">
-        <div className="flex justify-between items-center max-w-md mx-auto">
-          <NavButton 
-            active={activeTab === 'inventory'} 
-            onClick={() => setActiveTab('inventory')}
-            icon={<Package className="w-5 h-5" />}
-            label="Stock"
-          />
-          <NavButton 
-            active={activeTab === 'stats'} 
-            onClick={() => setActiveTab('stats')}
-            icon={<TrendingUp className="w-5 h-5" />}
-            label="Stats"
-          />
-          <NavButton 
-            active={activeTab === 'history'} 
-            onClick={() => setActiveTab('history')}
-            icon={<History className="w-5 h-5" />}
-            label="History"
-          />
-          <NavButton 
-            active={activeTab === 'settings'} 
-            onClick={() => setActiveTab('settings')}
-            icon={<Settings className="w-5 h-5" />}
-            label="Set"
-          />
-        </div>
-      </nav>
-    </div>
-  );
-}
-
-interface PhoneCardProps {
-  phone: Phone;
-  expenses: Expense[];
-  onClick: () => void;
-  key?: string | number;
-}
-
-function PhoneCard({ phone, expenses, onClick }: PhoneCardProps) {
-  const totalCost = phone.buyPrice + expenses.filter(e => e.phoneId === phone.id).reduce((sum, e) => sum + e.amount, 0);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      onClick={onClick}
-      className="group relative bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden active:scale-[0.97] transition-transform flex flex-row cursor-pointer hover:bg-white/[0.07] hover:border-white/15"
-    >
-      {/* Compact image thumbnail */}
-      <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 overflow-hidden bg-white/5">
-        {phone.imageUrl ? (
-          <img 
-            src={phone.imageUrl} 
-            alt={phone.model}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <Smartphone className="w-7 h-7 text-white/[0.08]" />
-          </div>
-        )}
-        <div className="absolute top-1.5 left-1.5">
-          <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded-md backdrop-blur-md ${
-            phone.status === 'In Stock' ? 'bg-emerald-500 text-black' : 
-            phone.status === 'Sold' ? 'bg-white/20 text-white' :
-            phone.status === 'Personal Use' ? 'bg-purple-500 text-white' :
-            'bg-amber-500 text-black'
-          }`}>
-            {phone.status}
-          </span>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-        <div>
-          <div className="flex items-start justify-between gap-1">
-            <h3 className="font-bold text-xs sm:text-sm leading-tight truncate">{phone.model}</h3>
-            {phone.storageCapacity && (
-              <span className="text-[8px] font-black bg-white/10 px-1.5 py-0.5 rounded leading-none shrink-0">
-                {phone.storageCapacity}
-              </span>
-            )}
-          </div>
-          <p className="text-[9px] font-mono text-white/25 mt-0.5 uppercase tracking-tight truncate">
-            {phone.imei.slice(-8)} • {phone.color || '—'}
-          </p>
-        </div>
-        
-        <div className="flex items-center justify-between mt-1">
-          <p className="font-mono text-emerald-400 font-black text-sm">रु {totalCost.toLocaleString()}</p>
-          <span className="text-[9px] font-mono text-white/40 font-bold">
-            {phone.batteryHealth ? `${phone.batteryHealth}%` : ''}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function NavButton({ active, icon, label, onClick }: { active: boolean, icon: React.ReactNode, label: string, onClick: () => void }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 transition-all relative cursor-pointer ${active ? 'text-emerald-500' : 'text-white/30'}`}
-    >
-      <div className={`p-1 rounded-xl transition-colors ${active ? 'bg-emerald-500/10' : ''}`}>
-        {icon}
-      </div>
-      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
-      {active && (
-        <motion.div 
-          layoutId="nav-glow"
-          className="absolute -bottom-2 w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]"
-        />
-      )}
-    </button>
+    </Router>
   );
 }

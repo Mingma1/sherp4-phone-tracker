@@ -31,6 +31,7 @@ import { storage, ref, uploadBytes, getDownloadURL } from '../services/firebase'
 
 interface PhoneDetailModalProps {
   phone: Phone | null;
+  isOpen?: boolean;
   expenses: Expense[];
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Phone>) => void;

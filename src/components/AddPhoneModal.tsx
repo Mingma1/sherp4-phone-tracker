@@ -22,13 +22,17 @@ interface AddPhoneModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (phone: Omit<Phone, 'id' | 'createdAt'>) => void;
+  setOcrLoading?: (loading: boolean) => void;
+  ocrLoading?: boolean;
 }
 
-export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModalProps) {
+export default function AddPhoneModal({ isOpen, onClose, onSave, setOcrLoading, ocrLoading }: AddPhoneModalProps) {
   const [step, setStep] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
   const [showRawDumpInput, setShowRawDumpInput] = useState(false);
   const [rawDumpText, setRawDumpText] = useState('');
+  const [imeiStatus, setImeiStatus] = useState<'clean' | 'blacklisted' | 'unknown' | null>(null);
+  const [imeiVerifying, setImeiVerifying] = useState(false);
   
   const [formData, setFormData] = useState<Partial<Phone>>({
     status: 'In Stock',
@@ -82,6 +86,29 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     }));
     setShowRawDumpInput(false);
     setRawDumpText('');
+  };
+
+  const handleVerifyIMEI = async () => {
+    if (!formData.imei || formData.imei.length < 15) {
+      alert('Please enter a valid 15-digit IMEI');
+      return;
+    }
+
+    setImeiVerifying(true);
+    try {
+      const response = await fetch('/api/verify-imei', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imei: formData.imei }),
+      });
+      const data = await response.json();
+      setImeiStatus(data.status);
+    } catch (error) {
+      console.error('IMEI verification error:', error);
+      setImeiStatus('unknown');
+    } finally {
+      setImeiVerifying(false);
+    }
   };
 
 
@@ -181,7 +208,39 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Model" value={formData.model} onChange={v => setFormData(p => ({ ...p, model: v }))} placeholder="e.g. iPhone 15 Pro" />
-                  <Field label="IMEI" value={formData.imei} onChange={v => setFormData(p => ({ ...p, imei: v }))} placeholder="15 Digit Number" />
+                  <div className="space-y-2 group">
+                    <p className="text-[10px] uppercase text-white/30 font-black tracking-widest ml-1 transition-colors group-focus-within:text-emerald-500">IMEI</p>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        value={formData.imei || ''}
+                        onChange={(e) => {
+                          setFormData(p => ({ ...p, imei: e.target.value }));
+                          setImeiStatus(null);
+                        }}
+                        placeholder="15 Digit Number"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm font-bold focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.08] transition-all"
+                      />
+                      <button
+                        onClick={handleVerifyIMEI}
+                        disabled={imeiVerifying || !formData.imei}
+                        className="px-3 py-4 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-2xl font-bold text-[10px] uppercase hover:bg-blue-500/30 disabled:opacity-50 transition-all"
+                      >
+                        {imeiVerifying ? '...' : 'Verify'}
+                      </button>
+                    </div>
+                    {imeiStatus && (
+                      <div className={`mt-2 px-3 py-2 rounded-lg text-[10px] font-bold ${
+                        imeiStatus === 'clean' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                        imeiStatus === 'blacklisted' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                        'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                      }`}>
+                        {imeiStatus === 'clean' && '✓ IMEI is clean'}
+                        {imeiStatus === 'blacklisted' && '✗ IMEI is blacklisted'}
+                        {imeiStatus === 'unknown' && '? Status unknown'}
+                      </div>
+                    )}
+                  </div>
                   <Field label="Serial No" value={formData.serialNumber} onChange={v => setFormData(p => ({ ...p, serialNumber: v }))} />
                   <Field label="Storage" value={formData.storageCapacity} onChange={v => setFormData(p => ({ ...p, storageCapacity: v }))} placeholder="e.g. 256GB" />
                   <Field label="Battery Health" value={formData.batteryHealth?.toString()} onChange={v => setFormData(p => ({ ...p, batteryHealth: parseInt(v) }))} type="number" />
