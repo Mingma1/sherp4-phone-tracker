@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { 
+import {
   X,
-  Camera, 
-  ChevronRight, 
+  ChevronRight,
   ChevronLeft,
   CheckCircle2,
   Save,
@@ -10,8 +9,11 @@ import {
   User,
   Phone as PhoneIcon,
   Tag,
-  UploadCloud,
-  Zap
+  Zap,
+  Link as LinkIcon,
+  Smartphone,
+  Camera,
+  UploadCloud
 } from 'lucide-react';
 import { parse3uDump } from '../services/parse3uDump';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,43 +28,14 @@ interface AddPhoneModalProps {
 
 export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModalProps) {
   const [step, setStep] = useState(1);
-  const [isUploading, setIsUploading] = useState(false);
   const [showRawDumpInput, setShowRawDumpInput] = useState(false);
   const [rawDumpText, setRawDumpText] = useState('');
-  
+  const [isUploading, setIsUploading] = useState(false);
+
   const [formData, setFormData] = useState<Partial<Phone>>({
     status: 'In Stock',
     buyDate: new Date().toISOString().split('T')[0],
   });
-
-  const [previews, setPreviews] = useState<{ phone?: string }>({});
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      // Local preview
-      const url = URL.createObjectURL(file);
-      setPreviews(prev => ({ ...prev, phone: url }));
-
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `inventory/${Date.now()}_phone_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      setFormData(prev => ({
-        ...prev,
-        imageUrl: downloadURL
-      }));
-    } catch (err) {
-      console.error('Upload failed', err);
-      alert('Upload failed. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleParseRawDump = () => {
     if (!rawDumpText.trim()) return;
@@ -84,6 +57,23 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     setRawDumpText('');
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `inventory/${Date.now()}_phone_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, imageUrl: downloadURL }));
+    } catch (err) {
+      console.error('Upload failed', err);
+      alert('Upload failed. Check Firebase Storage rules.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   const handleSubmit = () => {
     if (!formData.buyPrice) {
@@ -93,7 +83,8 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     const finalData = {
       ...formData,
       model: formData.model || 'Unknown Device',
-      imei: formData.imei || `TEMP-${Math.floor(100000 + Math.random() * 900000)}`
+      imei: formData.imei || `TEMP-${Math.floor(100000 + Math.random() * 900000)}`,
+      status: formData.status || 'In Stock'
     };
     onSave(finalData as Omit<Phone, 'id' | 'createdAt'>);
     onClose();
@@ -127,33 +118,56 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
           {step === 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <div className="space-y-3">
-                <p className="text-[10px] uppercase text-white/40 font-black tracking-widest ml-1">Phone Photo</p>
-                <label className="relative h-48 rounded-3xl bg-white/5 border-2 border-dashed border-white/10 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group">
-                  {previews.phone ? (
-                    <img src={previews.phone} className="w-full h-full object-cover" />
-                  ) : (
-                    <>
-                      <Camera className="w-8 h-8 text-white/20 group-hover:text-emerald-500 transition-colors mb-2" />
-                      <span className="text-[10px] font-bold text-white/20">UPLOAD DEVICE PHOTO</span>
-                    </>
-                  )}
-                  <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
-                </label>
-              </div>
-
-              {isUploading && (
-                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-3">
-                  <UploadCloud className="w-5 h-5 text-blue-500 animate-bounce" />
-                  <span className="text-xs font-bold text-blue-400">Uploading media to secure storage...</span>
+                <p className="text-[10px] uppercase text-white/40 font-black tracking-widest ml-1">Phone Image</p>
+                <div className="flex items-center gap-4">
+                  <div className="relative w-24 h-24 shrink-0 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                    {formData.imageUrl ? (
+                      <img
+                        src={formData.imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const img = e.currentTarget as HTMLImageElement;
+                          img.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <Smartphone className="w-7 h-7 text-white/[0.12]" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    {/* File upload button */}
+                    <label className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer group">
+                      <Camera className="w-4 h-4 text-white/40 group-hover:text-emerald-500 transition-colors" />
+                      <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">
+                        {isUploading ? 'Uploading...' : 'Upload Photo'}
+                      </span>
+                      {isUploading && <UploadCloud className="w-4 h-4 text-blue-400 animate-bounce ml-auto" />}
+                      <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" disabled={isUploading} />
+                    </label>
+                    {/* URL fallback */}
+                    <div className="relative group">
+                      <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        type="url"
+                        value={formData.imageUrl || ''}
+                        onChange={(e) => setFormData(p => ({ ...p, imageUrl: e.target.value }))}
+                        placeholder="Or paste image URL…"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-5 text-xs font-bold focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.08] transition-all"
+                      />
+                    </div>
+                    <p className="text-[9px] text-white/25 ml-1">Optional — leave blank to use a placeholder.</p>
+                  </div>
                 </div>
-              )}
+              </div>
 
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/20 ml-1">Device Specifications</h3>
-                  <button 
-                    onClick={() => setShowRawDumpInput(s => !s)} 
+                  <button
+                    onClick={() => setShowRawDumpInput(s => !s)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-colors cursor-pointer"
                   >
                     <Zap className="w-3.5 h-3.5 text-emerald-400" />
@@ -164,7 +178,7 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
                 {showRawDumpInput && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-white/5 border border-emerald-500/30 p-4 rounded-3xl space-y-3 overflow-hidden">
                     <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Paste raw text output from 3uTools / iMazing device info:</p>
-                    <textarea 
+                    <textarea
                       value={rawDumpText}
                       onChange={e => setRawDumpText(e.target.value)}
                       placeholder="ActivationState Activated&#10;DeviceName Mingma's iPhone&#10;ProductType iPhone15,3..."
@@ -226,13 +240,17 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
                   <p className="text-xs text-white/40 font-bold mb-1">Set Device Status</p>
                   <p className="text-lg font-black">{formData.status}</p>
                 </div>
-                <div className="flex gap-2">
-                  {['In Stock', 'On Sale', 'Personal Use'].map(s => (
-                    <button 
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {(['In Stock', 'Personal Use', 'On Sale'] as const).map(s => (
+                    <button
                       key={s}
-                      onClick={() => setFormData(p => ({ ...p, status: s as any }))}
+                      onClick={() => setFormData(p => ({ ...p, status: s }))}
                       className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-                        formData.status === s ? 'bg-emerald-500 text-black' : 'bg-white/5 text-white/40'
+                        formData.status === s
+                          ? s === 'In Stock' ? 'bg-emerald-500 text-black'
+                          : s === 'Personal Use' ? 'bg-purple-500 text-white'
+                          : 'bg-amber-500 text-black'
+                          : 'bg-white/5 text-white/40'
                       }`}
                     >
                       {s}

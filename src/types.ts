@@ -44,4 +44,5 @@ export interface InventoryStats {
   totalInStock: number;
   capitalInvested: number;
   soldCount: number;
+  profitMargin: number;
 }

@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Only the verified owner can read and write to the inventory folder
+    function isOwner() {
+      return request.auth != null
+          && request.auth.token.email == 'msherpa621@gmail.com'
+          && request.auth.token.email_verified == true;
+    }
+
+    match /inventory/{allPaths=**} {
+      allow read:  if isOwner();
+      allow write: if isOwner()
+                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
