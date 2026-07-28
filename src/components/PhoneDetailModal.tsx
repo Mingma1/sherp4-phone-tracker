@@ -26,7 +26,7 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 import { parse3uDump } from '../services/parse3uDump';
-import { storage, ref, uploadBytes, getDownloadURL } from '../services/firebase';
+import { uploadPhoneImage } from '../services/imageUpload';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Phone, Expense } from '../types';
 
@@ -96,15 +96,15 @@ export default function PhoneDetailModal({
 
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `inventory/${Date.now()}_phone_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const downloadURL = await uploadPhoneImage(file);
       setEditData(prev => ({ ...prev, imageUrl: downloadURL }));
     } catch (err) {
       console.error('Upload failed', err);
-      alert('Upload failed. Please try again.');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      alert(`Upload failed: ${errMsg}`);
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
   };
 
