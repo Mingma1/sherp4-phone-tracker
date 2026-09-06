@@ -77,20 +77,22 @@ service cloud.firestore {
     match /phones/{phoneId} {
       allow get, list: if isOwner();
       
-      allow create: if isOwner() && 
-                      isValidId(phoneId) && 
+      allow create: if isOwner() &&
+                      isValidId(phoneId) &&
                       isValidPhone(incoming()) &&
-                      incoming().createdAt == request.time;
+                      incoming().createdAt is int &&
+                      incoming().createdAt > 0 &&
+                      incoming().createdAt <= request.time.toMillis() + 60000;
       
-      allow update: if isOwner() && 
+      allow update: if isOwner() &&
                       isValidPhone(incoming()) &&
                       incoming().createdAt == existing().createdAt &&
                       incoming().imei == existing().imei &&
                       (
-                        // Action: Update details/Edit
+                        // Action: Update details/Edit (buyPrice is immutable)
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'model', 'serialNumber', 'storageCapacity', 'color', 
-                          'batteryHealth', 'buyPrice', 'buyDate', 'buyLocation',
+                          'batteryHealth', 'buyDate', 'buyLocation',
                           'sellerName', 'sellerNumber', 'physicalCondition', 'remarks',
                           'imageUrl', 'reportUrl', 'status'
                         ]) ||

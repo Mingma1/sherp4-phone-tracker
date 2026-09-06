@@ -10,10 +10,10 @@ service firebase.storage {
     }
 
     match /inventory/{allPaths=**} {
-      allow read:  if isOwner();
+      allow read: if isOwner();
       allow write: if isOwner()
-                   && request.resource.size < 10 * 1024 * 1024  // max 10 MB
-                   && request.resource.contentType.matches('image/.*');
+                    && request.resource.size < 10 * 1024 * 1024  // max 10 MB
+                    && request.resource.contentType.matches('image/.*');
     }
   }
 }

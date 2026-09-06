@@ -129,7 +129,8 @@ export default function PhoneDetailModal({
   };
 
   const handleUpdate = () => {
-    onUpdate(phone.id, editData);
+    const { buyPrice, ...rest } = editData;
+    onUpdate(phone.id, rest);
     setIsEditing(false);
   };
 
@@ -139,8 +140,12 @@ export default function PhoneDetailModal({
       return;
     }
     onUpdate(phone.id, {
-      ...sellData,
+      ...phone,
       sellPrice: parseFloat(sellData.sellPrice),
+      sellDate: sellData.sellDate,
+      sellLocation: sellData.sellLocation,
+      buyerName: sellData.buyerName,
+      buyerNumber: sellData.buyerNumber,
       status: 'Sold'
     });
     setIsSelling(false);
@@ -244,7 +249,6 @@ export default function PhoneDetailModal({
               <div className="grid grid-cols-2 gap-3">
                 <EditField label="Model" value={editData.model || ''} onChange={v => setEditData(p => ({ ...p, model: v }))} />
                 <EditField label="IMEI" value={editData.imei || ''} onChange={v => setEditData(p => ({ ...p, imei: v }))} />
-                <EditField label="Buy Price" type="number" value={editData.buyPrice?.toString() || ''} onChange={v => setEditData(p => ({ ...p, buyPrice: parseFloat(v) }))} />
                 <EditField label="Storage" value={editData.storageCapacity || ''} onChange={v => setEditData(p => ({ ...p, storageCapacity: v }))} />
                 <EditField label="Color" value={editData.color || ''} onChange={v => setEditData(p => ({ ...p, color: v }))} />
                 <EditField label="Battery %" type="number" value={editData.batteryHealth?.toString() || ''} onChange={v => setEditData(p => ({ ...p, batteryHealth: parseInt(v) }))} />
@@ -254,7 +258,7 @@ export default function PhoneDetailModal({
               <EditField label="Seller Contact" value={editData.sellerNumber || ''} onChange={v => setEditData(p => ({ ...p, sellerNumber: v }))} />
               <EditField label="Remarks" value={editData.remarks || ''} onChange={v => setEditData(p => ({ ...p, remarks: v }))} />
 
-              {phone.status === 'Sale' && (
+              {phone.status === 'Sold' && (
                 <div className="space-y-3 pt-4 border-t border-white/5">
                   <h4 className="text-xs font-bold uppercase tracking-wide text-blue-400">Sale Information</h4>
                   <div className="grid grid-cols-2 gap-3">

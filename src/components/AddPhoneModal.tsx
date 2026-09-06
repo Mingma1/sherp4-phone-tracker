@@ -80,12 +80,13 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
       alert('Please fill in the Buy Price');
       return;
     }
-    const finalData = {
-      ...formData,
-      model: formData.model || 'Unknown Device',
-      imei: formData.imei || `TEMP-${Math.floor(100000 + Math.random() * 900000)}`,
-      status: formData.status || 'In Stock'
-    };
+     const finalData = {
+       ...formData,
+       imageUrl: formData.imageUrl,
+       model: formData.model || 'Unknown Device',
+       imei: formData.imei || `TEMP-${Math.floor(100000 + Math.random() * 900000)}`,
+       status: formData.status || 'In Stock'
+     };
     onSave(finalData as Omit<Phone, 'id' | 'createdAt'>);
     onClose();
   };
@@ -209,7 +210,7 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <InputGroup label="Purchase Details">
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Buy Price (NPR)" value={formData.buyPrice?.toString()} onChange={v => setFormData(p => ({ ...p, buyPrice: parseFloat(v) }))} type="number" />
+                   <Field label="Buy Price" value={formData.buyPrice?.toString()} onChange={v => setFormData(p => ({ ...p, buyPrice: parseFloat(v) }))} type="number" />
                   <Field label="Buy Date" value={formData.buyDate} onChange={v => setFormData(p => ({ ...p, buyDate: v }))} type="date" />
                 </div>
                 <div className="mt-4 space-y-4">
