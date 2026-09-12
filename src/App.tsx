@@ -167,7 +167,7 @@ export default function App() {
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden">
         <SakuraPetals count={16} />
         <div className="relative z-10 flex flex-col items-center">
-          <Lock className="w-12 h-12 text-white/20 mb-6" />
+          <img src="/logo.jpeg" alt="SHERP4 Logo" className="w-16 h-16 rounded-2xl mb-6 object-cover shadow-lg shadow-white/5" />
           <h2 className="text-2xl font-black mb-2 tracking-tighter">Private Cloud Inventory</h2>
           <p className="text-white/40 text-sm mb-12 max-w-[280px] leading-relaxed">
             Access is restricted to verified Google Cloud accounts only.
@@ -213,7 +213,8 @@ export default function App() {
             <div className="absolute inset-0 border-t-2 border-red-600 rounded-full animate-spin" />
             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
           </div>
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-2 flex flex-col items-center">
+            <img src="/logo.jpeg" alt="SHERP4 Logo" className="w-12 h-12 rounded-xl object-cover mb-2" />
             <h2 className="text-xl font-serif text-white/90 tracking-widest">SHERP4</h2>
             <p className="text-red-500/70 font-bold tracking-[0.3em] text-[10px] uppercase">Initializing System</p>
           </div>
@@ -243,7 +244,8 @@ export default function App() {
         <div className="max-w-5xl mx-auto">
           <div className="flex justify-between items-center">
             <div className="flex items-baseline gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2 font-display">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3 font-display">
+                <img src="/logo.jpeg" alt="SHERP4 Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover" />
                 SHERP4
                 <span className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md tracking-widest uppercase">
                   Solo Level • S-Rank
