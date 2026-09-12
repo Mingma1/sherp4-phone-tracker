@@ -19,6 +19,7 @@ import { parse3uDump } from '../services/parse3uDump';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone } from '../types';
 import { uploadPhoneImage } from '../services/imageUpload';
+import { toast } from 'react-hot-toast';
 
 interface AddPhoneModalProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
     } catch (err) {
       console.error('Upload failed', err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert(`Upload failed: ${errMsg}`);
+      toast.error(`Upload failed: ${errMsg}`);
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -77,7 +78,7 @@ export default function AddPhoneModal({ isOpen, onClose, onSave }: AddPhoneModal
 
   const handleSubmit = () => {
     if (!formData.buyPrice) {
-      alert('Please fill in the Buy Price');
+      toast.error('Please fill in the Buy Price');
       return;
     }
      const finalData = {
@@ -331,10 +332,12 @@ function Field({ label, value, onChange, placeholder, type = 'text', icon }: {
 }) {
   return (
     <div className="space-y-2 group">
-      <p className="text-[10px] uppercase text-white/30 font-black tracking-widest ml-1 transition-colors group-focus-within:text-emerald-500">{label}</p>
+      <label htmlFor={label.replace(/\s+/g, '-').toLowerCase()} className="text-[10px] uppercase text-white/30 font-black tracking-widest ml-1 transition-colors group-focus-within:text-emerald-500 block">{label}</label>
       <div className="relative">
         {icon && <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-500">{icon}</div>}
         <input 
+          id={label.replace(/\s+/g, '-').toLowerCase()}
+          name={label.replace(/\s+/g, '-').toLowerCase()}
           type={type}
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}

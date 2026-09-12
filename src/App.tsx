@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Search,
   Plus,
-  Smartphone,
   TrendingUp,
   History,
   Settings,
@@ -19,90 +18,43 @@ import {
   Percent,
   BarChart3
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
+import { Toaster, toast } from 'react-hot-toast';
 import type { Phone, InventoryStats, Expense } from './types';
 import AddPhoneModal from './components/AddPhoneModal';
 import PhoneDetailModal from './components/PhoneDetailModal';
 import SakuraPetals from './components/SakuraPetals';
+import PhoneCard from './components/PhoneCard';
+import NavButton from './components/NavButton';
+import ProfitChart from './components/ProfitChart';
+import ConfirmModal from './components/ConfirmModal';
+import { useAuth } from './hooks/useAuth';
+import { useFirebaseData } from './hooks/useFirebaseData';
 import { 
   db, 
   collection, 
-  onSnapshot, 
-  query, 
-  orderBy,
   addDoc,
   updateDoc,
   doc,
   deleteDoc,
-  auth,
   signIn,
-  signOut,
-  onAuthStateChanged,
-  type User
+  signOut
 } from './services/firebase';
 
 console.log('App initialization started...');
 
-
 export default function App() {
-  const [loading, setLoading] = useState(true);
+  const { currentUser, loading: authLoading } = useAuth();
+  const { phones, expenses, loading: dataLoading } = useFirebaseData(currentUser);
+  
+  const loading = authLoading || dataLoading;
+
   const [activeTab, setActiveTab] = useState<'inventory' | 'stats' | 'history' | 'settings'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState<Phone | null>(null);
-  const [phones, setPhones] = useState<Phone[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed:', user?.email);
-      setCurrentUser(user);
-    });
-    return () => unsubscribeAuth();
-  }, []);
-
-  useEffect(() => {
-    console.log('App useEffect running. currentUser:', currentUser?.email);
-    if (!currentUser) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const phonesQuery = query(collection(db, 'phones'), orderBy('createdAt', 'desc'));
-      const unsubscribePhones = onSnapshot(phonesQuery, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Phone[];
-        setPhones(data);
-        setLoading(false);
-      }, (err) => {
-        console.error('Firestore phones error:', err);
-        setLoading(false);
-      });
-
-      const expensesQuery = query(collection(db, 'expenses'), orderBy('date', 'desc'));
-      const unsubscribeExpenses = onSnapshot(expensesQuery, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Expense[];
-        setExpenses(data);
-      }, (err) => {
-        console.error('Firestore expenses error:', err);
-      });
-
-      return () => {
-        unsubscribePhones();
-        unsubscribeExpenses();
-      };
-    } catch (e) {
-      console.error('Error setting up listeners:', e);
-      setLoading(false);
-    }
-  }, [currentUser]);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const handleSavePhone = async (newPhone: Omit<Phone, 'id' | 'createdAt'>) => {
     try {
@@ -150,9 +102,67 @@ export default function App() {
     }
   };
 
+  const expensesByPhoneId = useMemo(() => {
+    const map: Record<string, Expense[]> = {};
+    expenses.forEach(e => {
+      if (e && e.phoneId) {
+        if (!map[e.phoneId]) map[e.phoneId] = [];
+        map[e.phoneId].push(e);
+      }
+    });
+    return map;
+  }, [expenses]);
+
+  const stats = useMemo(() => {
+    let totalProfit = 0;
+    let totalInStock = 0;
+    let capitalInvested = 0;
+    let soldCount = 0;
+    let totalInvestmentAll = 0; // For profit margin
+
+    phones.forEach((p) => {
+      if (!p) return;
+      const isActiveStock = p.status === 'In Stock' || p.status === 'Personal Use' || p.status === 'On Sale';
+      const phoneExpenses = (expensesByPhoneId[p.id] || []).reduce((sum, e) => sum + (e.amount || 0), 0);
+      
+      const investment = (p.buyPrice || 0) + phoneExpenses;
+      totalInvestmentAll += investment;
+
+      if (p.status === 'Sold') {
+        soldCount++;
+        totalProfit += ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
+      }
+      
+      if (isActiveStock) {
+        totalInStock++;
+        capitalInvested += investment;
+      }
+    });
+
+    const profitMargin = totalInvestmentAll > 0 ? (totalProfit / totalInvestmentAll) * 100 : 0;
+
+    return {
+      totalProfit,
+      totalInStock,
+      capitalInvested,
+      soldCount,
+      profitMargin
+    } as InventoryStats;
+  }, [phones, expensesByPhoneId]);
+
+  const filteredPhones = useMemo(() => {
+    return phones.filter(p => {
+      const modelMatch = p.model ? p.model.toLowerCase().includes(searchQuery.toLowerCase()) : false;
+      const imeiMatch = p.imei ? p.imei.includes(searchQuery) : false;
+      const matchesSearch = modelMatch || imeiMatch;
+      if (filterStatus === 'All') return matchesSearch;
+      if (filterStatus === 'In Stock') return matchesSearch && (p.status === 'In Stock' || p.status === 'Personal Use' || p.status === 'On Sale');
+      return matchesSearch && p.status === filterStatus;
+    });
+  }, [phones, searchQuery, filterStatus]);
 
   // 2. Strict Google Cloud Authentication Screen
-  if (!currentUser) {
+  if (!authLoading && !currentUser) {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden">
         <SakuraPetals count={16} />
@@ -170,9 +180,9 @@ export default function App() {
             } catch (err: unknown) {
               console.error('Google Sign In Error:', err);
               if (err instanceof Error) {
-                alert(`Authentication failed: ${err.message}. Please check your popup blocker or network.`);
+                toast.error(`Authentication failed: ${err.message}. Please check your popup blocker or network.`);
               } else {
-                alert('Authentication failed. Please check your browser popup blocker settings.');
+                toast.error('Authentication failed. Please check your browser popup blocker settings.');
               }
             }
           }}
@@ -194,55 +204,40 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-emerald-500 font-black tracking-widest text-xs uppercase animate-pulse">
-          Loading Sherp4...
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center relative overflow-hidden">
+        <SakuraPetals count={25} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-900/10 via-black to-black opacity-60" />
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="relative w-16 h-16 flex items-center justify-center">
+            <div className="absolute inset-0 border border-red-900/30 rounded-full" />
+            <div className="absolute inset-0 border-t-2 border-red-600 rounded-full animate-spin" />
+            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+          </div>
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-serif text-white/90 tracking-widest">SHERP4</h2>
+            <p className="text-red-500/70 font-bold tracking-[0.3em] text-[10px] uppercase">Initializing System</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Active stock = In Stock + Personal Use + On Sale
-  const isActiveStock = (p: Phone) => p.status === 'In Stock' || p.status === 'Personal Use' || p.status === 'On Sale';
-
-  const totalProfit = phones.reduce((acc, p) => {
-    if (!p || p.status !== 'Sold') return acc;
-    const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
-    return acc + ((p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses);
-  }, 0);
-
-  // Total investment = buyPrice + totalExpenses across all recorded items.
-  const totalInvestment = phones.reduce((acc, p) => {
-    if (!p) return acc;
-    const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
-    return acc + (p.buyPrice || 0) + phoneExpenses;
-  }, 0);
-
-  const profitMargin = totalInvestment > 0
-    ? (totalProfit / totalInvestment) * 100
-    : 0;
-
-  const stats: InventoryStats = {
-    totalProfit,
-    totalInStock: phones.filter(p => p && isActiveStock(p)).length,
-    capitalInvested: phones.filter(p => p && isActiveStock(p)).reduce((acc, p) => {
-      const phoneExpenses = expenses.filter(e => e && e.phoneId === p.id).reduce((sum, e) => sum + (e.amount || 0), 0);
-      return acc + (p.buyPrice || 0) + phoneExpenses;
-    }, 0),
-    soldCount: phones.filter(p => p && p.status === 'Sold').length,
-    profitMargin,
-  };
-
-  const filteredPhones = phones.filter(p => 
-    p.model.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.imei.includes(searchQuery)
-  );
-
   return (
-    <div className="relative min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30">
-      <SakuraPetals count={10} />
+    <div className="relative min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-x-hidden">
+      {/* Background Visuals */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/10 via-black to-black" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      </div>
+      
+      <Toaster position="top-center" toastOptions={{ 
+        style: { background: '#111', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }
+      }} />
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <SakuraPetals count={15} />
+      </div>
 
-      <div className="h-6 bg-black" />
+      <div className="h-6 relative z-10" />
 
       <header className="px-4 sm:px-6 pt-6 pb-4 sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/5">
         <div className="max-w-5xl mx-auto">
@@ -259,7 +254,6 @@ export default function App() {
               <button 
                 onClick={async () => {
                   await signOut();
-                  setCurrentUser(null);
                 }}
                 className="p-2.5 bg-white/5 rounded-xl border border-white/10 text-white/40 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Lock Session"
@@ -279,12 +273,30 @@ export default function App() {
           <div className="mt-4 relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-emerald-500 transition-colors" />
             <input 
+              id="searchQuery"
+              name="searchQuery"
               type="text"
               placeholder="Search IMEI or Model..."
               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm font-medium focus:outline-none focus:border-emerald-500/40 focus:bg-white/[0.05] transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+          
+          <div className="flex gap-2 mt-4 overflow-x-auto scrollbar-hide pb-2">
+            {['All', 'In Stock', 'Sold'].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
+                  filterStatus === status
+                    ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20'
+                    : 'bg-white/5 text-white/50 hover:bg-white/10 border border-white/10'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
         </div>
       </header>
@@ -298,7 +310,7 @@ export default function App() {
                 Active Stock
               </h2>
               <span className="text-sm font-mono bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
-                {phones.filter(p => p.status === 'In Stock' || p.status === 'Personal Use' || p.status === 'On Sale').length} Items
+                {stats.totalInStock} Items
               </span>
             </div>
 
@@ -307,7 +319,7 @@ export default function App() {
                 {filteredPhones
                   .filter(p => p.status === 'In Stock' || p.status === 'Personal Use' || p.status === 'On Sale')
                   .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
+                    <PhoneCard key={phone.id} phone={phone} expenses={expensesByPhoneId[phone.id] || []} onClick={() => setSelectedPhone(phone)} />
                   ))}
               </AnimatePresence>
             </div>
@@ -322,7 +334,7 @@ export default function App() {
                 Sale History
               </h2>
               <span className="text-sm font-mono bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">
-                {phones.filter(p => p.status === 'Sold').length} Items
+                {stats.soldCount} Items
               </span>
             </div>
 
@@ -331,7 +343,7 @@ export default function App() {
                 {filteredPhones
                   .filter(p => p.status === 'Sold')
                   .map((phone) => (
-                    <PhoneCard key={phone.id} phone={phone} expenses={expenses} onClick={() => setSelectedPhone(phone)} />
+                    <PhoneCard key={phone.id} phone={phone} expenses={expensesByPhoneId[phone.id] || []} onClick={() => setSelectedPhone(phone)} />
                   ))}
               </AnimatePresence>
             </div>
@@ -382,7 +394,6 @@ export default function App() {
           <div className="mt-8 space-y-8 max-w-xl mx-auto">
             <h2 className="text-lg font-bold uppercase tracking-wider text-white/60 px-2">System Configuration</h2>
             
-
             <div className="bg-white/[0.03] border border-white/10 p-8 rounded-[2.5rem] space-y-6">
               <div className="flex items-center gap-4 border-b border-white/5 pb-6">
                 <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
@@ -437,12 +448,7 @@ export default function App() {
                     </div>
                   </div>
                   <button 
-                    onClick={async () => {
-                      if (confirm('Sign out from Cloud Session?')) {
-                        await signOut();
-                        setCurrentUser(null);
-                      }
-                    }}
+                    onClick={() => setLogoutConfirmOpen(true)}
                     className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors cursor-pointer"
                   >
                     Cloud Logout
@@ -454,7 +460,6 @@ export default function App() {
                 <button 
                   onClick={async () => {
                     await signOut();
-                    setCurrentUser(null);
                   }}
                   className="w-full py-4 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white font-black uppercase text-xs tracking-widest rounded-2xl transition-all cursor-pointer border border-red-500/30 flex items-center justify-center gap-2 shadow-xl"
                 >
@@ -474,12 +479,26 @@ export default function App() {
 
       <PhoneDetailModal 
         phone={selectedPhone} 
-        expenses={expenses.filter(e => e.phoneId === selectedPhone?.id)}
+        expenses={selectedPhone ? (expensesByPhoneId[selectedPhone.id] || []) : []}
         onClose={() => setSelectedPhone(null)} 
         onUpdate={handleUpdatePhone}
         onDelete={handleDeletePhone}
         onAddExpense={handleAddExpense}
         onDeleteExpense={handleDeleteExpense}
+      />
+
+      <ConfirmModal
+        isOpen={logoutConfirmOpen}
+        title="Sign Out"
+        message="Are you sure you want to sign out from your Cloud Session?"
+        confirmText="Sign Out"
+        isDestructive={true}
+        onConfirm={async () => {
+          await signOut();
+          setLogoutConfirmOpen(false);
+          toast.success('Signed out successfully');
+        }}
+        onCancel={() => setLogoutConfirmOpen(false)}
       />
 
       <nav className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/5 px-6 pt-3 pb-6 z-[60]">
@@ -510,236 +529,6 @@ export default function App() {
           />
         </div>
       </nav>
-    </div>
-  );
-}
-
-interface PhoneCardProps {
-  phone: Phone;
-  expenses: Expense[];
-  onClick: () => void;
-  key?: string | number;
-}
-
-function PhoneCard({ phone, expenses, onClick }: PhoneCardProps) {
-  const totalCost = phone.buyPrice + expenses.filter(e => e.phoneId === phone.id).reduce((sum, e) => sum + e.amount, 0);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      onClick={onClick}
-      className="group relative bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden active:scale-[0.97] transition-transform flex flex-row cursor-pointer hover:bg-white/[0.07] hover:border-white/15"
-    >
-      {/* Compact image thumbnail */}
-      <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 overflow-hidden bg-white/5">
-        {phone.imageUrl ? (
-          <img
-            src={phone.imageUrl}
-            alt={phone.model}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            referrerPolicy="no-referrer"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <Smartphone className="w-7 h-7 text-white/[0.08]" />
-          </div>
-        )}
-        <div className="absolute top-1.5 left-1.5">
-          <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded-md backdrop-blur-md ${
-            phone.status === 'In Stock' ? 'bg-emerald-500 text-black' :
-            phone.status === 'Sold' ? 'bg-white/20 text-white' :
-            phone.status === 'Personal Use' ? 'bg-purple-500 text-white' :
-            'bg-amber-500 text-black'
-          }`}>
-            {phone.status}
-          </span>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-        <div>
-          <div className="flex items-start justify-between gap-1">
-            <h3 className="font-bold text-xs sm:text-sm leading-tight truncate">{phone.model}</h3>
-            {phone.storageCapacity && (
-              <span className="text-[8px] font-black bg-white/10 px-1.5 py-0.5 rounded leading-none shrink-0">
-                {phone.storageCapacity}
-              </span>
-            )}
-          </div>
-          <p className="text-[9px] font-mono text-white/25 mt-0.5 uppercase tracking-tight truncate">
-            {phone.imei.slice(-8)} • {phone.color || '—'}
-          </p>
-        </div>
-        
-        <div className="flex items-center justify-between mt-1">
-          <p className="font-mono text-emerald-400 font-black text-sm">रु {totalCost.toLocaleString()}</p>
-          <span className="text-[9px] font-mono text-white/40 font-bold">
-            {phone.batteryHealth ? `${phone.batteryHealth}%` : ''}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function NavButton({ active, icon, label, onClick }: { active: boolean, icon: React.ReactNode, label: string, onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 transition-all relative cursor-pointer ${active ? 'text-emerald-500' : 'text-white/30'}`}
-    >
-      <div className={`p-1 rounded-xl transition-colors ${active ? 'bg-emerald-500/10' : ''}`}>
-        {icon}
-      </div>
-      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
-      {active && (
-        <motion.div
-          layoutId="nav-glow"
-          className="absolute -bottom-2 w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]"
-        />
-      )}
-    </button>
-  );
-}
-
-interface ProfitChartProps {
-  phones: Phone[];
-  expenses: Expense[];
-}
-
-/**
- * Dependency-free, theme-matched SVG bar chart of profit per sold device.
- * Inherits the dark theme, mono/Space Grotesk typography and emerald accent.
- */
-function ProfitChart({ phones, expenses }: ProfitChartProps) {
-  const data = React.useMemo(() => {
-    return phones
-      .filter(p => p && p.status === 'Sold')
-      .map(p => {
-        const phoneExpenses = expenses
-          .filter(e => e && e.phoneId === p.id)
-          .reduce((sum, e) => sum + (e.amount || 0), 0);
-        const profit = (p.sellPrice || 0) - (p.buyPrice || 0) - phoneExpenses;
-        return { id: p.id, label: p.model || 'Unknown', value: profit };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  }, [phones, expenses]);
-
-  const W = 320;
-  const H = 180;
-  const pad = { top: 16, right: 12, bottom: 28, left: 12 };
-  const innerW = W - pad.left - pad.right;
-  const innerH = H - pad.top - pad.bottom;
-
-  if (data.length === 0) {
-    return (
-      <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center">
-        <BarChart3 className="w-8 h-8 text-white/10 mb-3" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-white/30">
-          Profit Breakdown
-        </p>
-        <p className="text-xs text-white/30 mt-1">
-          Sales will appear here once devices are marked as Sale.
-        </p>
-      </div>
-    );
-  }
-
-  const maxAbs = Math.max(...data.map(d => Math.abs(d.value)), 1);
-  const barGap = 10;
-  const barW = Math.max((innerW - barGap * (data.length - 1)) / data.length, 8);
-  const zeroY = pad.top + innerH / 2;
-
-  return (
-    <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-6 sm:p-8 space-y-5">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className="w-1 h-3 bg-emerald-500 rounded-full" />
-          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/40">Profit Breakdown</h3>
-        </div>
-        <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest">
-          Top {data.length} Sales
-        </span>
-      </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Profit per sold device">
-        <defs>
-          <linearGradient id="profit-positive" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.25" />
-          </linearGradient>
-          <linearGradient id="profit-negative" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.9" />
-          </linearGradient>
-        </defs>
-
-        {/* Zero baseline */}
-        <line
-          x1={pad.left}
-          y1={zeroY}
-          x2={W - pad.right}
-          y2={zeroY}
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth="1"
-          strokeDasharray="3 3"
-        />
-
-        {data.map((d, i) => {
-          const x = pad.left + i * (barW + barGap);
-          const barH = (Math.abs(d.value) / maxAbs) * (innerH / 2);
-          const positive = d.value >= 0;
-          const y = positive ? zeroY - barH : zeroY;
-          return (
-            <g key={d.id}>
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={Math.max(barH, 1)}
-                rx={4}
-                fill={positive ? 'url(#profit-positive)' : 'url(#profit-negative)'}
-              />
-              <text
-                x={x + barW / 2}
-                y={positive ? y - 5 : y + barH + 11}
-                textAnchor="middle"
-                fontSize="8"
-                fontFamily="ui-monospace, monospace"
-                fill={positive ? '#10b981' : '#ef4444'}
-                fontWeight="700"
-              >
-                {d.value >= 0 ? '+' : ''}{(d.value / 1000).toFixed(d.value % 1000 === 0 ? 0 : 1)}k
-              </text>
-              <text
-                x={x + barW / 2}
-                y={H - 10}
-                textAnchor="middle"
-                fontSize="7"
-                fontFamily="ui-monospace, monospace"
-                fill="rgba(255,255,255,0.35)"
-              >
-                {d.label.length > 10 ? d.label.slice(0, 9) + '…' : d.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-
-      <div className="flex items-center justify-center gap-5 pt-1">
-        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-white/40">
-          <span className="w-2 h-2 rounded-sm bg-emerald-500" /> Gain
-        </span>
-        <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-white/40">
-          <span className="w-2 h-2 rounded-sm bg-red-500" /> Loss
-        </span>
-      </div>
     </div>
   );
 }
